@@ -6,20 +6,53 @@ import {
   EyeSlashIcon,
   UserIcon,
 } from "@heroicons/react/24/solid";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login clicked");
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/hr/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Save JWT token
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+
+      // ✅ Redirect to HR dashboard
+      navigate("/hr/dashboard");
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center pt-16 px-4">
-
       {/* Heading */}
       <div className="text-center m-4">
         <h1 className="text-2xl font-semibold mb-2">Welcome Back</h1>
@@ -57,12 +90,10 @@ const Login = () => {
           Password
         </label>
         <div className="relative mb-6">
-          {/* Lock icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-white p-1 rounded">
             <LockClosedIcon className="w-5 h-5 text-gray-500" />
           </div>
 
-          {/* Eye icon */}
           <div
             className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
             onClick={() => setShowPassword(!showPassword)}
@@ -88,11 +119,12 @@ const Login = () => {
         {/* Login Button */}
         <button
           type="submit"
+          disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded font-medium
-                     flex items-center justify-center gap-2 hover:bg-blue-700"
+                     flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
         >
           <UserIcon className="w-5 h-5" />
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>

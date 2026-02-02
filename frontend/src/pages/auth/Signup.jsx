@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   UserIcon,
   EnvelopeIcon,
   LockClosedIcon,
-  ChevronDownIcon,
   EyeIcon,
   EyeSlashIcon,
 } from "@heroicons/react/24/solid";
@@ -14,12 +13,13 @@ const Signup = () => {
     fullName: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    role: "",
+    role: "HR", // 🔒 fixed role
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,9 +29,39 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(form);
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/hr/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.fullName,
+          email: form.email,
+          password: form.password,
+          // ⚠️ role is NOT trusted by backend
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Signup failed");
+        return;
+      }
+
+      alert("Account created successfully. Please login.");
+      navigate("/login");
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,7 +69,7 @@ const Signup = () => {
       {/* Heading */}
       <div className="text-center m-4">
         <h1 className="text-2xl font-semibold mb-2">
-          Create Admin / HR Account
+          Create HR Account
         </h1>
         <p className="text-gray-600">
           Sign up to access the HRMS dashboard
@@ -47,7 +77,10 @@ const Signup = () => {
       </div>
 
       {/* Form */}
-      <form className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md bg-white p-8 rounded-lg shadow-md"
+      >
         {/* Full Name */}
         <label className="block text-sm font-medium mb-1">Full Name</label>
         <div className="relative mb-4">
@@ -114,67 +147,23 @@ const Signup = () => {
           />
         </div>
 
-        {/* Confirm Password */}
-        <label className="block text-sm font-medium mb-1">
-          Confirm Password
-        </label>
-        <div className="relative mb-6">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <LockClosedIcon className="w-5 h-5 text-gray-500" />
-          </div>
-
-          <div
-            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-            onClick={() =>
-              setShowConfirmPassword(!showConfirmPassword)
-            }
-          >
-            {showConfirmPassword ? (
-              <EyeSlashIcon className="w-5 h-5 text-gray-500" />
-            ) : (
-              <EyeIcon className="w-5 h-5 text-gray-500" />
-            )}
-          </div>
-
-          <input
-            type={showConfirmPassword ? "text" : "password"}
-            name="confirmPassword"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            placeholder="Re-enter your password"
-            className="w-full pl-12 pr-12 p-2 border border-gray-500 rounded
-                       focus:ring-2 focus:ring-blue-600 focus:outline-none"
-            required
-          />
-        </div>
-
-        {/* Role */}
+        {/* Role (locked) */}
         <label className="block text-sm font-medium mb-1">Role</label>
-        <div className="relative mb-6">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <ChevronDownIcon className="w-5 h-5 text-gray-500" />
-          </div>
-          <select
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            className="w-full pl-12 p-2 border border-gray-500 rounded
-                       focus:ring-2 focus:ring-blue-600 focus:outline-none"
-            required
-          >
-            <option value="">Select role</option>
-            <option value="admin">Admin</option>
-            <option value="hr">HR</option>
-          </select>
-        </div>
+        <input
+          type="text"
+          value="HR"
+          disabled
+          className="w-full p-2 mb-6 border border-gray-300 rounded bg-gray-100 text-gray-600"
+        />
 
         {/* Submit */}
         <button
           type="submit"
+          disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded
-                     font-medium hover:bg-blue-700"
+                     font-medium hover:bg-blue-700 disabled:opacity-60"
         >
-          Create Account
+          {loading ? "Creating account..." : "Create Account"}
         </button>
 
         {/* Login link */}
