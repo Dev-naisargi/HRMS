@@ -1,132 +1,71 @@
 import React, { useState } from "react";
-import {
-  EnvelopeIcon,
-  LockClosedIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  UserIcon,
-} from "@heroicons/react/24/solid";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { EnvelopeIcon, LockClosedIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import api from "../../utils/api";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ email: "", password: "" });
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:5000/api/hr/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || "Login failed");
-        setLoading(false);
-        return;
-      }
-
-      // ✅ Save JWT token
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.role);
-
-      // ✅ Redirect to HR dashboard
-      navigate("/hr/dashboard");
+      const res = await api.post("/auth/login", formData);
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("role", res.data.role);
+      const role = res.data.role;
+      if (role === "ADMIN") navigate("/admin/dashboard");
+      else if (role === "HR") navigate("/hr/dashboard");
+      else navigate("/employee/dashboard");
     } catch (error) {
-      console.error(error);
-      alert("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+      alert(error.response?.data?.message || "Login failed");
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center pt-16 px-4">
-      {/* Heading */}
-      <div className="text-center m-4">
-        <h1 className="text-2xl font-semibold mb-2">Welcome Back</h1>
-        <p className="text-gray-600">
-          Login to access your HRMS dashboard
-        </p>
+    <div className="min-h-screen bg-green-50/30 flex flex-col justify-center py-12 px-6 font-sans text-sm">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8">
+        <Link to="/" className="inline-flex items-center gap-2 group mb-4">
+          <div className="bg-emerald-600 p-1.5 rounded-lg transition-transform group-hover:rotate-3 shadow-md shadow-emerald-100">
+            <ShieldCheckIcon className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-tighter text-gray-900">
+            HR<span className="text-emerald-600">MS</span>
+          </span>
+        </Link>
+        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Welcome Back</h2>
       </div>
 
-      {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white p-8 rounded-lg shadow-md"
-      >
-        {/* Email */}
-        <label className="block text-sm font-medium mb-1">
-          Email Address
-        </label>
-        <div className="relative mb-4">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-white p-1 rounded">
-            <EnvelopeIcon className="w-5 h-5 text-gray-500" />
+      <div className="sm:mx-auto sm:w-full sm:max-w-[400px]">
+        <div className="bg-white py-10 px-8 shadow-xl shadow-emerald-900/5 border border-green-100 rounded-2xl">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+              <div className="relative">
+                <EnvelopeIcon className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
+                <input type="email" name="email" required onChange={handleChange} className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
+              <div className="relative">
+                <LockClosedIcon className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
+                <input type="password" name="password" required onChange={handleChange} className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              </div>
+            </div>
+            <button disabled={loading} className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95">
+              {loading ? "Signing in..." : "Login"}
+            </button>
+          </form>
+          <div className="mt-8 text-center border-t border-green-50 pt-6">
+            <p className="text-gray-500 font-medium">New here? <Link to="/signup" className="text-emerald-600 font-bold hover:underline">Create a company</Link></p>
           </div>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full pl-12 p-2 border border-gray-500 rounded
-                       focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            required
-          />
         </div>
-
-        {/* Password */}
-        <label className="block text-sm font-medium mb-1">
-          Password
-        </label>
-        <div className="relative mb-6">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-white p-1 rounded">
-            <LockClosedIcon className="w-5 h-5 text-gray-500" />
-          </div>
-
-          <div
-            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? (
-              <EyeSlashIcon className="w-5 h-5 text-gray-500" />
-            ) : (
-              <EyeIcon className="w-5 h-5 text-gray-500" />
-            )}
-          </div>
-
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full pl-12 pr-12 p-2 border border-gray-500 rounded
-                       focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            required
-          />
-        </div>
-
-        {/* Login Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded font-medium
-                     flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
-        >
-          <UserIcon className="w-5 h-5" />
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+      </div>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Navbar from "./components/Navbar/Navbar";
+
+import Home from "./pages/Home";       // ✅ ADD THIS
 import Signup from "./pages/auth/Signup";
 import Login from "./pages/auth/Login";
 
@@ -21,10 +22,11 @@ const ProtectedRoute = ({ children }) => {
 const App = () => {
   return (
     <>
-      <Navbar />
+   
 
       <Routes>
         {/* Public Routes */}
+        <Route path="/" element={<Home />} />          {/* ✅ HOME */}
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
 
@@ -38,8 +40,8 @@ const App = () => {
           }
         />
 
-        {/* Default Route */}
-        <Route path="*" element={<Navigate to="/login" />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" />} /> {/* ✅ redirect to home */}
       </Routes>
     </>
   );
