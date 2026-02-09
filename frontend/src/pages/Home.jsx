@@ -49,7 +49,7 @@ const Home = () => {
 
           <div className="hidden md:flex items-center gap-10">
             <a href="#features" className="text-[14px] font-semibold text-gray-500 hover:text-emerald-600 transition-colors">Features</a>
-            <a href="#how-it-works" className="text-[14px] font-semibold text-gray-500 hover:text-emerald-600 transition-colors">Free Trial</a>
+            <a href="#how-it-works" className="text-[14px] font-semibold text-gray-500 hover:text-emerald-600 transition-colors">How It works </a>
           </div>
 
           <div className="hidden md:flex items-center gap-6">
