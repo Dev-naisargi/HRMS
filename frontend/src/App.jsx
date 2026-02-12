@@ -4,6 +4,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";       // ✅ ADD THIS
 import Signup from "./pages/auth/Signup";
 import Login from "./pages/auth/Login";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+
 
 /* ================= AUTH GUARD ================= */
 const ProtectedRoute = ({ children }) => {
@@ -32,10 +34,10 @@ const App = () => {
 
         {/* Protected Routes */}
         <Route
-          path="/hr/dashboard"
+          path="/admin/dashboard"
           element={
             <ProtectedRoute>
-              <h1 className="text-2xl font-bold p-6">HR Dashboard</h1>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />
