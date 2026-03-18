@@ -1,16 +1,21 @@
-// routes/adminRoutes.js
 const express = require("express");
-const protect = require("../middleware/authMiddleware");
-const adminOnly = require("../middleware/adminMiddleware");
-
 const router = express.Router();
 
-router.get("/dashboard", protect, adminOnly, (req, res) => {
-  res.json({
-    message: "Welcome Admin",
-    adminId: req.user.userId,
-    companyId: req.user.companyId,
-  });
-});
+const protect = require("../middleware/authMiddleware");
+const adminOnly = require("../middleware/adminMiddleware");
+const {
+  createHR,
+  getHRs,
+  updateHR,
+  deleteHR,
+  getStats,
+  getChartData, 
+} = require("../controllers/adminController");
 
+router.get("/stats", protect, adminOnly, getStats);
+router.post("/create-hr", protect, adminOnly, createHR);
+router.get("/hrs", protect, adminOnly, getHRs);
+router.put("/hrs/:id", protect, adminOnly, updateHR);
+router.delete("/hrs/:id", protect, adminOnly, deleteHR);
+router.get("/charts", protect, adminOnly, getChartData);
 module.exports = router;

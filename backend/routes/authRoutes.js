@@ -1,10 +1,20 @@
-// routes/authRoutes.js
 const express = require("express");
-const { loginAdmin, logout } = require("../controllers/authController");
-const protect = require("../middleware/authMiddleware");
 const router = express.Router();
+const protect = require("../middleware/authMiddleware");
+const {
+  registerAdmin,
+  loginAdmin,
+  googleLoginAdminSimple,
+  logout,
+  getMe,
+  updateProfile,
+} = require("../controllers/authController");
 
+router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
-router.post("/logout", protect, logout);
+router.post("/google-login-simple", googleLoginAdminSimple);
+router.post("/logout", logout);
+router.get("/me", protect, getMe);
+router.put("/update-profile", protect, updateProfile);
 
 module.exports = router;

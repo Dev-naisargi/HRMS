@@ -1,10 +1,8 @@
-// middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
 
 const protect = (req, res, next) => {
   let token;
 
-  // token format: Bearer <token>
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
@@ -18,7 +16,6 @@ const protect = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     req.user = decoded; // { userId, role, companyId }
     next();
   } catch (error) {
