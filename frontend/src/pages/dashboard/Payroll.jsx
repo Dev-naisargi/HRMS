@@ -605,7 +605,7 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                                                         Present {emp.presentDays}d | Absent {emp.absentDays}d | Late {emp.lateDays}d
                                                     </td>
                                                 </tr>
-                                            )) : (mode === 'single' && selectedEmployeeId ? [employees.find(e => e._id === selectedEmployeeId)].filter(Boolean) : employees).map(emp => (
+                                            )) : (selectedEmployeeId ? [employees.find(e => e._id === selectedEmployeeId)].filter(Boolean) : []).map(emp => (
                                                 <tr key={emp._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
                                                     <td className="px-4 py-4 font-bold text-slate-800 dark:text-slate-200 text-sm">{emp.name}</td>
                                                     <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">₹{emp.salary?.toLocaleString() || 0}</td>
