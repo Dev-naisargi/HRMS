@@ -3,6 +3,8 @@ import ReusableTable from '../../components/ReusableTable';
 import StatCard from '../../components/StatCard';
 import Modal from '../../components/Modal';
 import api from '../../utils/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
     DollarSign, CheckCircle2, Clock, Send, Check, X, User,
     AlertCircle, Download, Eye, Ban, ShieldCheck
@@ -442,8 +444,7 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
     const [previewing, setPreviewing] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    // ── Mode: "all" or "single" ──
-    const [mode, setMode] = useState('all');
+    // ── Single employee mode only ──
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
     useEffect(() => {
@@ -451,7 +452,6 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
             // Reset state when modal opens
             setMonth(new Date().toISOString().slice(0, 7));
             setPreview(null);
-            setMode('all');
             setSelectedEmployeeId('');
             fetchEmployees();
         }
@@ -470,17 +470,17 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     const handlePreview = async () => {
+        if (!selectedEmployeeId) {
+            alert('Please select an employee');
+            return;
+        }
         setPreviewing(true);
         try {
             const dateObj = new Date(month);
             const monthName = dateObj.toLocaleString('default', { month: 'long' });
             const year = dateObj.getFullYear();
 
-            let url = `/payroll/preview?month=${monthName}&year=${year}`;
-            if (mode === 'single' && selectedEmployeeId) {
-                url += `&employeeId=${selectedEmployeeId}`;
-            }
-
+            const url = `/payroll/preview?month=${monthName}&year=${year}&employeeId=${selectedEmployeeId}`;
             const res = await api.get(url);
             setPreview(res.data);
         } catch (err) {
@@ -491,17 +491,17 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     const handleConfirm = async () => {
+        if (!selectedEmployeeId) {
+            alert('Please select an employee');
+            return;
+        }
         setProcessing(true);
         try {
             const dateObj = new Date(month);
             const monthName = dateObj.toLocaleString('default', { month: 'long' });
             const year = dateObj.getFullYear();
 
-            const payload = { month: monthName, year };
-            if (mode === 'single' && selectedEmployeeId) {
-                payload.employeeId = selectedEmployeeId;
-            }
-
+            const payload = { month: monthName, year, employeeId: selectedEmployeeId };
             await api.post('/payroll/generate', payload);
             onSuccess();
         } catch (err) {
@@ -513,16 +513,13 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
 
     const totals = useMemo(() => {
         if (!preview) {
-            if (mode === 'single' && selectedEmployeeId) {
-                return { count: 1, totalPay: 0 };
-            }
-            return { count: employees.length, totalPay: 0 };
+            return { count: 1, totalPay: 0 };
         }
         return {
             count: preview.totalEmployees,
             totalPay: preview.totalPayable,
         };
-    }, [preview, employees, mode, selectedEmployeeId]);
+    }, [preview]);
 
     const selectedEmployee = employees.find(e => e._id === selectedEmployeeId);
 
@@ -545,52 +542,28 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                         />
                         <button
                             onClick={handlePreview}
-                            disabled={previewing || (mode === 'single' && !selectedEmployeeId)}
+                            disabled={previewing || !selectedEmployeeId}
                             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 transition disabled:opacity-50"
                         >
-                            {previewing ? 'Loading...' : '👁 Preview'}
+                            {previewing ? 'Loading...' : 'Preview'}
                         </button>
                         <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={20} /></button>
                     </div>
                 </div>
 
-                {/* Mode Selection */}
+                {/* Employee Selection */}
                 <div className="px-8 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex gap-4 items-center flex-shrink-0">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Mode:</span>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => { setMode('all'); setSelectedEmployeeId(''); setPreview(null); }}
-                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                                mode === 'all'
-                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                            }`}
-                        >
-                            All Employees
-                        </button>
-                        <button
-                            onClick={() => { setMode('single'); setPreview(null); }}
-                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                                mode === 'single'
-                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                            }`}
-                        >
-                            Single Employee
-                        </button>
-                    </div>
-                    {mode === 'single' && (
-                        <select
-                            value={selectedEmployeeId}
-                            onChange={(e) => { setSelectedEmployeeId(e.target.value); setPreview(null); }}
-                            className="ml-auto border rounded-lg px-3 py-2 font-semibold text-sm outline-none focus:ring-2 focus:ring-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-                        >
-                            <option value="">— Select Employee —</option>
-                            {employees.map(emp => (
-                                <option key={emp._id} value={emp._id}>{emp.name} ({emp.department})</option>
-                            ))}
-                        </select>
-                    )}
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Select Employee:</span>
+                    <select
+                        value={selectedEmployeeId}
+                        onChange={(e) => { setSelectedEmployeeId(e.target.value); setPreview(null); }}
+                        className="border rounded-lg px-3 py-2 font-semibold text-sm outline-none focus:ring-2 focus:ring-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                    >
+                        <option value="">— Select an Employee —</option>
+                        {employees.map(emp => (
+                            <option key={emp._id} value={emp._id}>{emp.name} ({emp.department})</option>
+                        ))}
+                    </select>
                 </div>
 
                 {/* Main Content - Scrollable */}
@@ -629,7 +602,7 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                                                     <td className="px-4 py-4 text-sm text-rose-500 dark:text-rose-400 font-mono">-₹{emp.lateDeduction?.toLocaleString()}</td>
                                                     <td className="px-4 py-4 font-black text-slate-900 dark:text-white">₹{emp.netPay?.toLocaleString()}</td>
                                                     <td className="px-4 py-4 text-xs text-slate-500 dark:text-slate-400">
-                                                        ✅{emp.presentDays}d ❌{emp.absentDays}d ⏰{emp.lateDays}
+                                                        Present {emp.presentDays}d | Absent {emp.absentDays}d | Late {emp.lateDays}d
                                                     </td>
                                                 </tr>
                                             )) : (mode === 'single' && selectedEmployeeId ? [employees.find(e => e._id === selectedEmployeeId)].filter(Boolean) : employees).map(emp => (
@@ -683,11 +656,11 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                         {/* Fixed Button at Bottom */}
                         <div className="border-t border-slate-100 dark:border-slate-700 p-8 shrink-0">
                             <button
-                                disabled={processing || (mode === 'single' && !selectedEmployeeId) || (mode === 'all' && employees.length === 0)}
+                                disabled={processing || !selectedEmployeeId}
                                 onClick={handleConfirm}
                                 className="bg-slate-900 hover:bg-slate-800 disabled:hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:disabled:hover:bg-white text-white dark:text-slate-900 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all"
                             >
-                                {processing ? 'Processing...' : mode === 'all' ? 'Generate Cycle' : `Generate for ${selectedEmployee?.name || 'Employee'}`}
+                                {processing ? 'Processing...' : `Generate for ${selectedEmployee?.name || 'Select Employee'}`}
                             </button>
                         </div>
                     </div>
@@ -702,59 +675,129 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
 ══════════════════════════════════════════════ */
 const PayslipModal = ({ payroll, onClose }) => {
     const handleDownload = () => {
-        const content = `
-╔══════════════════════════════════════════╗
-║              SALARY PAYSLIP              ║
-╚══════════════════════════════════════════╝
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let yPosition = 20;
 
-Employee  : ${payroll.employeeId?.name || '—'}
-Department: ${payroll.employeeId?.department || '—'}
-Period    : ${payroll.month} ${payroll.year}
-Status    : ${payroll.status}
-ID        : #${payroll._id?.slice(-8)}
+            // Header
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            doc.text('SALARY PAYSLIP', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 15;
 
-══════════════════════════════════════════
-ATTENDANCE SUMMARY
-══════════════════════════════════════════
-Working Days : ${payroll.workingDays || 26}
-Present Days : ${payroll.presentDays || 0}
-Absent Days  : ${payroll.absentDays || 0}
-Late Days    : ${payroll.lateDays || 0}
-Overtime Days: ${payroll.overtimeDays || 0}
-Half Days    : ${payroll.halfDays || 0}
+            // Employee Info
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Employee: ${payroll.employeeId?.name || 'N/A'}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Department: ${payroll.employeeId?.department || 'N/A'}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Designation: ${payroll.employeeId?.designation || 'N/A'}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Period: ${payroll.month} ${payroll.year}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Status: ${payroll.status}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Payslip ID: #${payroll._id?.slice(-8)}`, 20, yPosition);
+            yPosition += 15;
 
-══════════════════════════════════════════
-EARNINGS
-══════════════════════════════════════════
-Basic Salary    : ₹${payroll.basicSalary?.toLocaleString()}
-HRA (20%)       : ₹${payroll.hra?.toLocaleString() || 0}
-Allowances (10%): ₹${payroll.allowances?.toLocaleString() || 0}
-Bonus           : ₹${payroll.bonus?.toLocaleString()}
-Overtime Pay    : ₹${payroll.overtimePay?.toLocaleString() || 0}
-─────────────────────────────────────────
-Gross Pay       : ₹${payroll.grossPay?.toLocaleString() || payroll.basicSalary?.toLocaleString()}
+            // Attendance Summary
+            doc.setFont(undefined, 'bold');
+            doc.text('ATTENDANCE SUMMARY', 20, yPosition);
+            yPosition += 7;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(9);
 
-══════════════════════════════════════════
-DEDUCTIONS
-══════════════════════════════════════════
-PF (12%)        : ₹${payroll.pf?.toLocaleString() || 0}
-Tax/TDS (10%)   : ₹${payroll.tax?.toLocaleString() || 0}
-Late Deduction  : ₹${payroll.lateDeduction?.toLocaleString() || 0}
-Leave Deduction : ₹${payroll.leaveDeduction?.toLocaleString()}
-─────────────────────────────────────────
-Total Deductions: ₹${payroll.totalDeductions?.toLocaleString() || payroll.deductions?.toLocaleString()}
+            const attendanceData = [
+                ['Working Days', `${payroll.workingDays || 26}`],
+                ['Present Days', `${payroll.presentDays || 0}`],
+                ['Absent Days', `${payroll.absentDays || 0}`],
+                ['Late Days', `${payroll.lateDays || 0}`],
+                ['Overtime Days', `${payroll.overtimeDays || 0}`],
+                ['Half Days', `${payroll.halfDays || 0}`],
+            ];
 
-══════════════════════════════════════════
-NET SALARY      : ₹${payroll.netPay?.toLocaleString()}
-══════════════════════════════════════════
-        `;
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Payslip_${payroll.month}_${payroll.year}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+            autoTable(doc, {
+                startY: yPosition,
+                head: [['Description', 'Count']],
+                body: attendanceData,
+                headStyles: { fillColor: [41, 41, 41], textColor: [255, 255, 255] },
+                alternateRowStyles: { fillColor: [240, 240, 240] },
+                margin: 20,
+                columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' } },
+            });
+            yPosition = doc.lastAutoTable.finalY + 10;
+
+            // Earnings Section
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('EARNINGS', 20, yPosition);
+            yPosition += 7;
+
+            const earningsData = [
+                ['Basic Salary', `₹${payroll.basicSalary?.toLocaleString()}`],
+                ['HRA (20%)', `₹${payroll.hra?.toLocaleString() || 0}`],
+                ['Allowances (10%)', `₹${payroll.allowances?.toLocaleString() || 0}`],
+                ['Bonus', `₹${payroll.bonus?.toLocaleString()}`],
+                ['Overtime Pay', `₹${payroll.overtimePay?.toLocaleString() || 0}`],
+                ['Gross Pay', `₹${(payroll.grossPay || payroll.basicSalary)?.toLocaleString()}`],
+            ];
+
+            autoTable(doc, {
+                startY: yPosition,
+                head: [['Description', 'Amount']],
+                body: earningsData,
+                headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+                alternateRowStyles: { fillColor: [240, 255, 250] },
+                margin: 20,
+                columnStyles: { 1: { halign: 'right' } },
+            });
+            yPosition = doc.lastAutoTable.finalY + 10;
+
+            // Deductions Section
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('DEDUCTIONS', 20, yPosition);
+            yPosition += 7;
+
+            const deductionsData = [
+                ['PF (12%)', `₹${payroll.pf?.toLocaleString() || 0}`],
+                ['Tax / TDS (10%)', `₹${payroll.tax?.toLocaleString() || 0}`],
+                ['Late Deduction', `₹${payroll.lateDeduction?.toLocaleString() || 0}`],
+                ['Leave Deduction', `₹${payroll.leaveDeduction?.toLocaleString()}`],
+                ['Total Deductions', `₹${(payroll.totalDeductions || payroll.deductions)?.toLocaleString()}`],
+            ];
+
+            autoTable(doc, {
+                startY: yPosition,
+                head: [['Description', 'Amount']],
+                body: deductionsData,
+                headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255] },
+                alternateRowStyles: { fillColor: [255, 240, 240] },
+                margin: 20,
+                columnStyles: { 1: { halign: 'right' } },
+            });
+            yPosition = doc.lastAutoTable.finalY + 15;
+
+            // Net Pay
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`NET PAYABLE: ₹${payroll.netPay?.toLocaleString()}`, 20, yPosition);
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('This is a computer-generated payslip. No signature is required.', 20, pageHeight - 10);
+
+            // Download
+            doc.save(`Payslip_${payroll.employeeId?.name}_${payroll.month}_${payroll.year}.pdf`);
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF payslip');
+        }
     };
 
     return (
@@ -857,7 +900,7 @@ NET SALARY      : ₹${payroll.netPay?.toLocaleString()}
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net Payable</span>
                         <p className="text-3xl font-black text-white italic">₹{payroll.netPay?.toLocaleString()}</p>
                     </div>
-                    <button onClick={handleDownload} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all" title="Download">
+                    <button onClick={handleDownload} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all" title="Download PDF">
                         <Download size={20} />
                     </button>
                 </div>
