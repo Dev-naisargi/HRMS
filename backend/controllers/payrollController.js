@@ -3,10 +3,11 @@ const Employee   = require("../models/Employee");
 const Attendance = require("../models/Attendance");
 const Company    = require("../models/Company");
 const { calculateSalary } = require("../utils/salaryCalculator");
+const { calculateLeaveDeduction } = require("../utils/leaveCalculator");
 
 /* ══════════════════════════════════════════════════
    HELPER: Calculate payroll for one employee
-   Uses real attendance data from DB + company salary structure
+   Uses real attendance data + approved leaves from DB
    Centralized calculation for consistency
 ══════════════════════════════════════════════════ */
 const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
@@ -46,6 +47,16 @@ const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
     const halfDays     = attendanceRecords.filter(a => a.status === "Half Day").length;
     const absentDays   = Math.max(0, salaryStructure.workingDaysPerMonth - presentDays - halfDays);
 
+    // ── Calculate leave deduction from approved leaves ──
+    const leaveData = await calculateLeaveDeduction({
+        employeeId: employee._id,
+        month,
+        year,
+        monthlySalary: employee.salary || 0,
+        workingDaysPerMonth: salaryStructure.workingDaysPerMonth,
+        company,
+    });
+
     // ── Use centralized salary calculator ──
     const calculation = calculateSalary({
         monthlySalary: employee.salary || 0,
@@ -55,8 +66,12 @@ const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
         halfDays,
         overtimeDays,
         bonus: bonusOverride,
+        leaveDeduction: leaveData.leaveDeduction, // Use calculated leave deduction
         salaryStructure,
     });
+
+    // ── Attach leave details to calculation ──
+    calculation.leaveDetails = leaveData;
 
     return calculation;
 };

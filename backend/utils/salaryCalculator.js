@@ -9,11 +9,12 @@
  * @param {Object} options - Calculation parameters
  * @param {Number} options.monthlySalary - Employee's monthly salary (basic)
  * @param {Number} options.presentDays - Number of days present
- * @param {Number} options.absentDays - Number of days absent
+ * @param {Number} options.absentDays - Number of days absent (from attendance)
  * @param {Number} options.lateDays - Number of late days
  * @param {Number} options.halfDays - Number of half days (optional)
  * @param {Number} options.overtimeDays - Number of overtime days (optional)
  * @param {Number} options.bonus - Bonus amount (optional)
+ * @param {Number} options.leaveDeduction - Leave deduction from approved leaves (optional)
  * @param {Object} options.salaryStructure - Company salary structure config
  * @returns {Object} Complete salary breakdown
  */
@@ -26,6 +27,7 @@ const calculateSalary = (options) => {
     halfDays = 0,
     overtimeDays = 0,
     bonus = 0,
+    leaveDeduction = 0, // From leave records, not calculated from absentDays
     salaryStructure = {
       hraPercent: 20,
       allowancePercent: 10,
@@ -74,8 +76,9 @@ const calculateSalary = (options) => {
   // Tax (TDS)
   const tax = Math.round(basicSalary * (salaryStructure.taxPercent / 100));
 
-  // Leave Deduction (for absent days)
-  const leaveDeduction = Math.round(absentDays * perDaySalary);
+  // Leave Deduction (from approved leaves: Casual, Sick, Earned)
+  // PAID leaves do NOT deduct salary
+  const finalLeaveDeduction = leaveDeduction || 0;
 
   // Half Day Deduction (50% of per day salary)
   const halfDayDeduction = Math.round(halfDays * perDaySalary * 0.5);
@@ -83,9 +86,13 @@ const calculateSalary = (options) => {
   // Late Deduction
   const lateDeduction = lateDays * salaryStructure.latePenaltyPerDay;
 
+  // Absence Deduction (for unrecorded/unapproved absences)
+  // Only deduct for absences that are NOT covered by leaves
+  const absenceDeduction = Math.round(absentDays * perDaySalary);
+
   // Total Deductions
   const totalDeductions =
-    pf + tax + leaveDeduction + halfDayDeduction + lateDeduction;
+    pf + tax + finalLeaveDeduction + halfDayDeduction + lateDeduction + absenceDeduction;
 
   // ════════════════════════════════════════════════════
   // 3. NET PAY CALCULATION
@@ -109,8 +116,8 @@ const calculateSalary = (options) => {
     // Deductions
     pf,
     tax,
-    leaveDeduction:
-      leaveDeduction + halfDayDeduction, // Combined for UI display
+    leaveDeduction: finalLeaveDeduction, // From approved leaves
+    absenceDeduction, // From unrecorded/unapproved absences
     lateDeduction,
     totalDeductions,
 
@@ -127,11 +134,6 @@ const calculateSalary = (options) => {
   };
 };
 
-/**
- * Format salary breakdown for API response
- * @param {Object} calculation - Result from calculateSalary
- * @returns {Object} Formatted breakdown
- */
 const formatSalaryBreakdown = (calculation) => {
   return {
     earnings: {
@@ -145,7 +147,8 @@ const formatSalaryBreakdown = (calculation) => {
     deductions: {
       pf: calculation.pf,
       tax: calculation.tax,
-      leave: calculation.leaveDeduction,
+      leaves: calculation.leaveDeduction, // From approved leaves
+      absences: calculation.absenceDeduction, // From unrecorded absences
       late: calculation.lateDeduction,
       total: calculation.totalDeductions,
     },
