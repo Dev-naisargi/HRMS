@@ -2,27 +2,45 @@ const mongoose = require("mongoose");
 
 const companySchema = new mongoose.Schema(
   {
-    companyName: {
-      type: String,
-      required: true,
-    },
-    companyAddress: {
-      type: String,
-      required: true,
-    },
-    companyPhone: {
-      type: String,
-      required: true,
-    },
+    name: { type: String, unique: true, lowercase: true, required: true },
+    address: { type: String, required: true },
+    email: { type: String }, // Company contact email
+    phone: { type: String },
+    address: { type: String },
+    industry: { type: String },
 
-    // ✅ ADD THIS
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      enum: ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"],
+      default: "PENDING",
+    },
+
+    rejectionReason: { type: String },
+
+    subscription: {
+      plan: {
+        type: String,
+        enum: ["BASIC", "PREMIUM", "ENTERPRISE"],
+        default: "BASIC",
+      },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      isActive: { type: Boolean, default: false },
+    },
+
+    adminEmail: { type: String, required: true },
+
+    salaryStructure: {
+      hraPercent: { type: Number, default: 20 },
+      allowancePercent: { type: Number, default: 10 },
+      pfPercent: { type: Number, default: 12 },
+      taxPercent: { type: Number, default: 10 },
+      overtimeRateMultiplier: { type: Number, default: 1.5 }, // 1.5x per hour/day
+      latePenaltyPerDay: { type: Number, default: 100 },
+      workingDaysPerMonth: { type: Number, default: 26 },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Company", companySchema);
