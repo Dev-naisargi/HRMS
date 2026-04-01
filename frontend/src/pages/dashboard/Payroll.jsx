@@ -648,9 +648,10 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                         )}
                     </div>
 
-                    {/* Sidebar - Fixed Position */}
-                    <div className="w-full md:w-80 bg-white dark:bg-slate-800 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-700 p-8 flex flex-col justify-between shrink-0 overflow-y-auto md:overflow-y-visible">
-                        <div className="space-y-6">
+                    {/* Sidebar - Fixed Position with Scrollable Content */}
+                    <div className="w-full md:w-80 bg-white dark:bg-slate-800 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-700 flex flex-col shrink-0 min-h-0">
+                        {/* Scrollable Content */}
+                        <div className="overflow-y-auto flex-1 p-8 space-y-6">
                             <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cycle Summary</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1">
@@ -679,13 +680,16 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                             </div>
                         </div>
 
-                        <button
-                            disabled={processing || (mode === 'single' && !selectedEmployeeId) || (mode === 'all' && employees.length === 0)}
-                            onClick={handleConfirm}
-                            className="bg-slate-900 hover:bg-slate-800 disabled:hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:disabled:hover:bg-white text-white dark:text-slate-900 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all mt-6"
-                        >
-                            {processing ? 'Processing...' : mode === 'all' ? 'Generate Cycle' : `Generate for ${selectedEmployee?.name || 'Employee'}`}
-                        </button>
+                        {/* Fixed Button at Bottom */}
+                        <div className="border-t border-slate-100 dark:border-slate-700 p-8 shrink-0">
+                            <button
+                                disabled={processing || (mode === 'single' && !selectedEmployeeId) || (mode === 'all' && employees.length === 0)}
+                                onClick={handleConfirm}
+                                className="bg-slate-900 hover:bg-slate-800 disabled:hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:disabled:hover:bg-white text-white dark:text-slate-900 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all"
+                            >
+                                {processing ? 'Processing...' : mode === 'all' ? 'Generate Cycle' : `Generate for ${selectedEmployee?.name || 'Employee'}`}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
