@@ -45,9 +45,8 @@ const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
     const overtimeDays = attendanceRecords.filter(a => a.status === "Overtime").length;
     const lateDays     = attendanceRecords.filter(a => a.isLate === true).length;
     const halfDays     = attendanceRecords.filter(a => a.status === "Half Day").length;
-    const absentDays   = Math.max(0, salaryStructure.workingDaysPerMonth - presentDays - halfDays);
 
-    // ── Calculate leave deduction from approved leaves ──
+    // ── Calculate leave deduction from approved leaves first ──
     const leaveData = await calculateLeaveDeduction({
         employeeId: employee._id,
         month,
@@ -56,6 +55,14 @@ const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
         workingDaysPerMonth: salaryStructure.workingDaysPerMonth,
         company,
     });
+
+    // ── Calculate absent days (excluding approved leave days) ──
+    // Absent days = working days - present - half days - approved leave days
+    const approvedLeaveDays = leaveData.totalUnpaidDays;
+    const absentDays = Math.max(
+        0,
+        salaryStructure.workingDaysPerMonth - presentDays - halfDays - approvedLeaveDays
+    );
 
     // ── Use centralized salary calculator ──
     const calculation = calculateSalary({
