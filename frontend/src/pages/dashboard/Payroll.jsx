@@ -88,6 +88,7 @@ const Payroll = () => {
     /* ── Status Badge ── */
     const statusBadge = (status) => {
         let styles = 'bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300';
+        if (status === 'DRAFT') styles = 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300';
         if (status === 'PENDING') styles = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
         if (status === 'APPROVED') styles = 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
         if (status === 'PAID') styles = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
@@ -168,7 +169,7 @@ const Payroll = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Payroll Management</h1>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">Operational compensation and cycle auditing</p>
                 </div>
-                {role === 'HR' && (
+                {(role === 'HR' || role === 'ADMIN') && (
                     <button
                         onClick={() => setGenerateModal(true)}
                         className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-emerald-100 dark:shadow-none transition-all"
@@ -446,7 +447,14 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
     useEffect(() => {
-        if (isOpen) fetchEmployees();
+        if (isOpen) {
+            // Reset state when modal opens
+            setMonth(new Date().toISOString().slice(0, 7));
+            setPreview(null);
+            setMode('all');
+            setSelectedEmployeeId('');
+            fetchEmployees();
+        }
     }, [isOpen]);
 
     const fetchEmployees = async () => {
@@ -520,42 +528,42 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="max-w-6xl">
-            <div className="flex flex-col h-[85vh] overflow-hidden">
+            <div className="flex flex-col h-[85vh] overflow-hidden bg-white dark:bg-slate-900">
 
                 {/* Modal Header */}
-                <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
+                <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight">Run Payroll Cycle</h2>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Select Period & Audit Adjustments</p>
+                        <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Run Payroll Cycle</h2>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Select Period & Audit Adjustments</p>
                     </div>
                     <div className="flex gap-3 items-center">
                         <input
                             type="month"
                             value={month}
                             onChange={(e) => { setMonth(e.target.value); setPreview(null); }}
-                            className="border rounded-xl px-4 py-2 font-bold text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                            className="border rounded-xl px-4 py-2 font-bold text-sm outline-none focus:ring-2 focus:ring-slate-100 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                         />
                         <button
                             onClick={handlePreview}
                             disabled={previewing || (mode === 'single' && !selectedEmployeeId)}
-                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition disabled:opacity-50"
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 transition disabled:opacity-50"
                         >
                             {previewing ? 'Loading...' : '👁 Preview'}
                         </button>
-                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={20} /></button>
                     </div>
                 </div>
 
                 {/* Mode Selection */}
-                <div className="px-8 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-4 items-center">
-                    <span className="text-sm font-bold text-slate-600">Mode:</span>
+                <div className="px-8 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex gap-4 items-center flex-shrink-0">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Mode:</span>
                     <div className="flex gap-3">
                         <button
                             onClick={() => { setMode('all'); setSelectedEmployeeId(''); setPreview(null); }}
                             className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                                 mode === 'all'
-                                    ? 'bg-slate-900 text-white'
-                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                         >
                             All Employees
@@ -564,8 +572,8 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                             onClick={() => { setMode('single'); setPreview(null); }}
                             className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                                 mode === 'single'
-                                    ? 'bg-slate-900 text-white'
-                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                         >
                             Single Employee
@@ -575,7 +583,7 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                         <select
                             value={selectedEmployeeId}
                             onChange={(e) => { setSelectedEmployeeId(e.target.value); setPreview(null); }}
-                            className="ml-auto border rounded-lg px-3 py-2 font-semibold text-sm outline-none focus:ring-2 focus:ring-slate-300"
+                            className="ml-auto border rounded-lg px-3 py-2 font-semibold text-sm outline-none focus:ring-2 focus:ring-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                         >
                             <option value="">— Select Employee —</option>
                             {employees.map(emp => (
@@ -585,49 +593,50 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                     )}
                 </div>
 
-                <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-                    {/* Table */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50/20">
+                {/* Main Content - Scrollable */}
+                <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+                    {/* Table - Scrollable */}
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50/20 dark:bg-slate-900/50">
                         {loading ? (
                             <div className="flex items-center justify-center h-full">
-                                <Clock className="animate-spin text-slate-300" size={32} />
+                                <Clock className="animate-spin text-slate-300 dark:text-slate-600" size={32} />
                             </div>
                         ) : (
-                            <div className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm">
+                            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[2rem] overflow-hidden shadow-sm">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left whitespace-nowrap">
-                                        <thead className="bg-slate-50/50 border-b border-slate-100">
+                                        <thead className="bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-600">
                                             <tr>
                                                 {['Employee', 'Base Salary', 'HRA', 'Allowances', 'Overtime', 'PF', 'Tax', 'Leave Ded.', 'Late Ded.', 'Net Pay', 'Attendance'].map(h => (
-                                                    <th key={h} className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                                                    <th key={h} className="px-4 py-4 text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-50">
+                                        <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                                             {preview ? preview.previews.map(emp => (
-                                                <tr key={emp.employeeId} className="hover:bg-slate-50/50 transition-colors">
+                                                <tr key={emp.employeeId} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
                                                     <td className="px-4 py-4">
-                                                        <p className="font-bold text-slate-800 text-sm">{emp.name}</p>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{emp.department}</p>
+                                                        <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{emp.name}</p>
+                                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">{emp.department}</p>
                                                     </td>
-                                                    <td className="px-4 py-4 text-sm text-slate-600 font-mono">₹{emp.basicSalary?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-emerald-600 font-mono">₹{emp.hra?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-emerald-600 font-mono">₹{emp.allowances?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-blue-600 font-mono">₹{emp.overtimePay?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-rose-500 font-mono">-₹{emp.pf?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-rose-500 font-mono">-₹{emp.tax?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-rose-500 font-mono">-₹{emp.leaveDeduction?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-sm text-rose-500 font-mono">-₹{emp.lateDeduction?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 font-black text-slate-900">₹{emp.netPay?.toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-xs text-slate-500">
+                                                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300 font-mono">₹{emp.basicSalary?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono">₹{emp.hra?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-mono">₹{emp.allowances?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-blue-600 dark:text-blue-400 font-mono">₹{emp.overtimePay?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-rose-500 dark:text-rose-400 font-mono">-₹{emp.pf?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-rose-500 dark:text-rose-400 font-mono">-₹{emp.tax?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-rose-500 dark:text-rose-400 font-mono">-₹{emp.leaveDeduction?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-sm text-rose-500 dark:text-rose-400 font-mono">-₹{emp.lateDeduction?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 font-black text-slate-900 dark:text-white">₹{emp.netPay?.toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-xs text-slate-500 dark:text-slate-400">
                                                         ✅{emp.presentDays}d ❌{emp.absentDays}d ⏰{emp.lateDays}
                                                     </td>
                                                 </tr>
                                             )) : (mode === 'single' && selectedEmployeeId ? [employees.find(e => e._id === selectedEmployeeId)].filter(Boolean) : employees).map(emp => (
-                                                <tr key={emp._id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-4 py-4 font-bold text-slate-800 text-sm">{emp.name}</td>
-                                                    <td className="px-4 py-4 text-sm text-slate-500 font-mono">₹{emp.salary?.toLocaleString() || 0}</td>
-                                                    <td colSpan={9} className="px-4 py-4 text-xs font-bold text-slate-400 italic uppercase tracking-wider">
+                                                <tr key={emp._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                                                    <td className="px-4 py-4 font-bold text-slate-800 dark:text-slate-200 text-sm">{emp.name}</td>
+                                                    <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">₹{emp.salary?.toLocaleString() || 0}</td>
+                                                    <td colSpan={9} className="px-4 py-4 text-xs font-bold text-slate-400 dark:text-slate-500 italic uppercase tracking-wider">
                                                         Click "Preview" to see full breakdown
                                                     </td>
                                                 </tr>
@@ -639,41 +648,41 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                         )}
                     </div>
 
-                    {/* Sidebar */}
-                    <div className="w-full md:w-80 bg-white border-l p-8 flex flex-col justify-between shrink-0">
+                    {/* Sidebar - Fixed Position */}
+                    <div className="w-full md:w-80 bg-white dark:bg-slate-800 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-700 p-8 flex flex-col justify-between shrink-0 overflow-y-auto md:overflow-y-visible">
                         <div className="space-y-6">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cycle Summary</h3>
+                            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cycle Summary</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Total Employees</span>
-                                    <p className="text-2xl font-black text-slate-900">{totals.count}</p>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Total Employees</span>
+                                    <p className="text-2xl font-black text-slate-900 dark:text-white">{totals.count}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Total Payable</span>
-                                    <p className="text-2xl font-black text-emerald-600 tracking-tight">₹{totals.totalPay?.toLocaleString()}</p>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Total Payable</span>
+                                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">₹{totals.totalPay?.toLocaleString()}</p>
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-1 text-[10px] text-slate-500 font-bold uppercase">
+                            <div className="bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 p-4 rounded-2xl space-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">
                                 <p>Basic + HRA(20%) + Allowances(10%)</p>
                                 <p>+ Overtime(1.5x) + Bonus</p>
-                                <p className="text-rose-500">- PF(12%) - Tax(10%)</p>
-                                <p className="text-rose-500">- Leave & Late Deductions</p>
-                                <p className="text-emerald-600 border-t border-slate-200 pt-1 mt-1">= Net Pay</p>
+                                <p className="text-rose-500 dark:text-rose-400">- PF(12%) - Tax(10%)</p>
+                                <p className="text-rose-500 dark:text-rose-400">- Leave & Late Deductions</p>
+                                <p className="text-emerald-600 dark:text-emerald-400 border-t border-slate-200 dark:border-slate-600 pt-1 mt-1">= Net Pay</p>
                             </div>
 
-                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3">
-                                <AlertCircle className="text-amber-500 shrink-0" size={18} />
-                                <p className="text-[10px] font-bold text-amber-700 italic leading-relaxed uppercase tracking-tighter">
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-4 rounded-2xl flex gap-3">
+                                <AlertCircle className="text-amber-500 dark:text-amber-400 shrink-0" size={18} />
+                                <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 italic leading-relaxed uppercase tracking-tighter">
                                     Adjustments here will persist as non-editable draft records. Ensure accuracy.
                                 </p>
                             </div>
                         </div>
 
                         <button
-                            disabled={processing || (mode === 'single' && !selectedEmployeeId)}
+                            disabled={processing || (mode === 'single' && !selectedEmployeeId) || (mode === 'all' && employees.length === 0)}
                             onClick={handleConfirm}
-                            className="bg-slate-900 text-white w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 mt-6"
+                            className="bg-slate-900 hover:bg-slate-800 disabled:hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:disabled:hover:bg-white text-white dark:text-slate-900 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all mt-6"
                         >
                             {processing ? 'Processing...' : mode === 'all' ? 'Generate Cycle' : `Generate for ${selectedEmployee?.name || 'Employee'}`}
                         </button>
