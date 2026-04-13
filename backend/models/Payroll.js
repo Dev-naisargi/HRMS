@@ -18,9 +18,8 @@ const payrollSchema = new mongoose.Schema({
     // ── Deductions ──
     pf:              { type: Number, default: 0 }, // 12% of basic
     tax:             { type: Number, default: 0 }, // 10% of basic
-    leaveDeduction:  { type: Number, default: 0 }, // From approved leaves (Casual, Sick, Earned)
-    absenceDeduction:{ type: Number, default: 0 }, // From unrecorded/unapproved absences
-    lateDeduction:   { type: Number, default: 0 }, // lateDays * penalty
+    leaveDeduction:  { type: Number, default: 0 }, // absentDays * (salary/26)
+    lateDeduction:   { type: Number, default: 0 }, // lateDays * 100
     totalDeductions: { type: Number, default: 0 },
 
     // ── Attendance Summary ──

@@ -1,6 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* Global emerald CTA upgrade: solid -> gradient */
+  button.bg-emerald-600,
+  a.bg-emerald-600,
+  [role="button"].bg-emerald-600 {
+    @apply bg-gradient-to-r from-emerald-500 to-emerald-600;
+  }
+
+  button.bg-emerald-500,
+  a.bg-emerald-500,
+  [role="button"].bg-emerald-500 {
+    @apply bg-gradient-to-r from-emerald-400 to-emerald-500;
+  }
+
+  button.hover\:bg-emerald-700:hover,
+  a.hover\:bg-emerald-700:hover,
+  [role="button"].hover\:bg-emerald-700:hover {
+    @apply from-emerald-600 to-emerald-700;
+    background-image: linear-gradient(to right, rgb(5 150 105), rgb(4 120 87));
+  }
+
+  button.hover\:bg-emerald-600:hover,
+  a.hover\:bg-emerald-600:hover,
+  [role="button"].hover\:bg-emerald-600:hover {
+    @apply from-emerald-500 to-emerald-600;
+    background-image: linear-gradient(to right, rgb(16 185 129), rgb(5 150 105));
+  }
+}
 @keyframes fadeIn {
   from {
     opacity: 0;

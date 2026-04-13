@@ -12,21 +12,23 @@ import {
   Eye,
   AlertCircle,
 } from "lucide-react";
-const role = localStorage.getItem("role");
 /* ── Stat Card ─────────────────────────────── */
-const MiniStat = ({ title, count, colorClass, icon: Icon }) => (
-  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
-    <div
-      className={`w-10 h-10 flex items-center justify-center rounded-xl mb-4 ${colorClass}`}
-    >
-      <Icon size={20} />
+const MiniStat = ({ title, count, colorClass, icon }) => {
+  const IconComponent = icon;
+  return (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+      <div
+        className={`w-10 h-10 flex items-center justify-center rounded-xl mb-4 ${colorClass}`}
+      >
+        <IconComponent size={20} />
+      </div>
+      <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
+        {count}
+      </h2>
+      <p className="text-gray-400 text-sm mt-1 font-medium">{title}</p>
     </div>
-    <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
-      {count}
-    </h2>
-    <p className="text-gray-400 text-sm mt-1 font-medium">{title}</p>
-  </div>
-);
+  );
+};
 /* ── Usage Card ─────────────────────────────── */
 const UsageCard = ({ title, count }) => (
   <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm">
@@ -57,7 +59,6 @@ const LeaveManagement = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isApplyingLeave, setIsApplyingLeave] = useState(false);
   const [filters, setFilters] = useState({
     status: "ALL",
     startDate: "",
@@ -112,7 +113,6 @@ const LeaveManagement = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      setIsApplyingLeave(true);
       await api.post("/leave/apply", {
         startDate: form.from,
         endDate: form.to,
@@ -127,7 +127,6 @@ const LeaveManagement = () => {
       toast.error(err.response?.data?.message || "Leave application failed");
     } finally {
       setSubmitting(false);
-      setIsApplyingLeave(false);
     }
   };
 

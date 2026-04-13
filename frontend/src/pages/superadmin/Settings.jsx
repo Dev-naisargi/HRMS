@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Lock, Globe, Bell, Camera, Save } from "lucide-react";
+import { User, Lock, Globe, Camera, Save } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Settings = () => {
@@ -7,7 +7,6 @@ const Settings = () => {
     const [profile, setProfile] = useState({ name: "Super Admin", email: "superadmin@gmail.com", role: "Super Admin" });
     const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
     const [preferences, setPreferences] = useState({ theme: "Light", language: "English", timezone: "UTC" });
-    const [notifications, setNotifications] = useState({ email: true, alerts: true, approvals: false });
     const [twoFactor, setTwoFactor] = useState(false);
 
     const handleSaveProfile = (e) => {
@@ -155,48 +154,6 @@ const Settings = () => {
                                     <option>PST (Pacific Standard Time)</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. Notification Settings */}
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg">
-                            <Bell size={20} />
-                        </div>
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-200">Notification Routing</h3>
-                    </div>
-
-                    <div className="space-y-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Email Notifications</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Receive daily summaries via email.</p>
-                            </div>
-                            <button onClick={() => setNotifications({ ...notifications, email: !notifications.email })} className={`w-11 h-6 rounded-full flex items-center transition-colors px-1 ${notifications.email ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${notifications.email ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                            </button>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">System Alerts</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Important health and performance warnings.</p>
-                            </div>
-                            <button onClick={() => setNotifications({ ...notifications, alerts: !notifications.alerts })} className={`w-11 h-6 rounded-full flex items-center transition-colors px-1 ${notifications.alerts ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${notifications.alerts ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                            </button>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Approval Notifications</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Ping when a new company registers.</p>
-                            </div>
-                            <button onClick={() => setNotifications({ ...notifications, approvals: !notifications.approvals })} className={`w-11 h-6 rounded-full flex items-center transition-colors px-1 ${notifications.approvals ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${notifications.approvals ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                            </button>
                         </div>
                     </div>
                 </div>

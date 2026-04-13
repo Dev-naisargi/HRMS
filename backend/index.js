@@ -21,13 +21,14 @@ connectDB();
 // ── Routes ──
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/company", require("./routes/companyRoutes"));
+app.use("/api/superadmin", require("./routes/superAdminRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/hr", require("./routes/hrRoutes"));
 app.use("/api/employees", require("./routes/employeeRoutes"));
 app.use("/api/leave", require("./routes/leaveRoutes"));
 app.use("/api/attendance", require("./routes/attendanceRoutes"));
 app.use("/api/payroll", require("./routes/payrollRoutes"));
-app.use("/api/superadmin", require("./routes/superAdminRoutes"));
+
 
 // ── Start Server ──
 const PORT = process.env.PORT || 8000;

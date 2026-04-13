@@ -17,13 +17,16 @@ const AttendanceReport = () => {
     try {
       const res = await api.get("/attendance/all");
       setRecords(res.data);
-    } catch (error) {
+    } catch {
       console.error("Failed to fetch attendance");
     }
   };
 
   useEffect(() => {
-    fetchAttendance();
+    const timer = setTimeout(() => {
+      fetchAttendance();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
   /* EXPORT CSV */
 

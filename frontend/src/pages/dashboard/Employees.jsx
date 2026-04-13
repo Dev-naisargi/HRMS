@@ -50,7 +50,7 @@ const inputCls = (err) =>
     `w-full px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border ${err ? 'border-red-300 focus:border-red-400' : 'border-gray-200 dark:border-gray-700 focus:border-emerald-400'
     } rounded-xl outline-none transition-all text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:bg-white dark:focus:bg-gray-800`;
 
-const EMPTY = { name: '', email: '', password: '', phone: '', department: 'Human Resources', position: '', dob: '', doj: '', status: 'Active' };
+const EMPTY = { name: '', email: '', password: '', phone: '', department: 'Human Resources', position: '', dob: '', doj: '', status: 'Active', salary: '' };
 
 const Employees = () => {
     const role = localStorage.getItem('role')?.toUpperCase() || 'EMPLOYEE';
@@ -110,6 +110,10 @@ if (search) data = data.filter(e =>
         if (name === 'phone' && value && !/^\d{10}$/.test(value)) error = 'Must be 10 digits';
         if (name === 'password' && value && !isEditing && value.length < 6) error = 'Min 6 characters';
         if (name === 'position' && value?.trim() === '') error = 'Required';
+        if (name === 'salary' && value) {
+            if (!/^\d+$/.test(value)) error = 'Only numbers allowed';
+            else if (parseInt(value) < 0) error = 'Must be positive';
+        }
         if (name === 'dob' && value) {
             const dob = new Date(value);
             if (dob >= today) error = 'DOB must be past';
@@ -127,6 +131,7 @@ if (search) data = data.filter(e =>
         let { name, value } = e.target;
         if (name === 'name') value = value.replace(/[^A-Za-z\s]/g, '');
         if (name === 'phone') value = value.replace(/\D/g, '').slice(0, 10);
+        if (name === 'salary') value = value.replace(/\D/g, '');
         const updated = { ...formData, [name]: value };
         setFormData(updated);
         validate(name, value, updated);
@@ -140,13 +145,15 @@ if (search) data = data.filter(e =>
             if (isEditing) {
                await api.put(`/employees/${isEditing}`, {
   ...formData,
-  designation: formData.position, // ✅ FIX
+  designation: formData.position,
+  salary: parseInt(formData.salary) || 0,
 });
                 triggerToast('Employee updated successfully!');
             } else {
 await api.post('/employees/', {
   ...formData,
-  designation: formData.position, // ✅ FIX
+  designation: formData.position,
+  salary: parseInt(formData.salary) || 0,
 });                triggerToast('Employee created successfully!');
             }
             await fetchEmployees();
@@ -179,6 +186,7 @@ await api.post('/employees/', {
             name: emp.name || '', email: emp.email || '', password: '',
             phone: emp.phone || '', department: emp.department || 'Human Resources',
             position: emp.position || '', status: emp.status || 'Active',
+            salary: emp.salary || '',
             dob: emp.dob ? emp.dob.split('T')[0] : '',
             doj: emp.doj ? emp.doj.split('T')[0] : '',
         });
@@ -325,10 +333,6 @@ await api.post('/employees/', {
                             {(() => {
                                 const source = viewEmployee.userId && typeof viewEmployee.userId === 'object' ? viewEmployee.userId : viewEmployee;
                                 const displayName = source?.name || viewEmployee.name || 'Unknown';
-                                const displayEmail = source?.email || viewEmployee.email || '—';
-                                const displayPhone = source?.phone || viewEmployee.phone || '—';
-                                const displayDob = source?.dob || viewEmployee.dob;
-                                const displayDoj = source?.doj || viewEmployee.doj;
                                 return (
                                     <>
                                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold mb-3 ${getAvatarColor(displayName)} border-4 border-white/30`}>
@@ -352,17 +356,19 @@ await api.post('/employees/', {
                                     { icon: Building2, label: 'Department', value: viewEmployee?.department || '—' },
                                     { icon: Calendar, label: 'Date of Birth', value: source?.dob ? new Date(source.dob).toLocaleDateString('en-IN') : viewEmployee?.dob ? new Date(viewEmployee.dob).toLocaleDateString('en-IN') : '—' },
                                     { icon: Calendar, label: 'Joining Date', value: source?.doj ? new Date(source.doj).toLocaleDateString('en-IN') : viewEmployee?.doj ? new Date(viewEmployee.doj).toLocaleDateString('en-IN') : '—' },
-                                ].map(({ icon: Icon, label, value }) => (
+                                ].map(({ icon, label, value }) => {
+                                    const ItemIcon = icon;
+                                    return (
                                     <div key={label} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                                         <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
-                                            <Icon size={14} className="text-gray-400 dark:text-gray-500" />
+                                            <ItemIcon size={14} className="text-gray-400 dark:text-gray-500" />
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase">{label}</p>
                                             <p className="text-sm text-gray-700 dark:text-gray-200 font-medium">{value}</p>
                                         </div>
                                     </div>
-                                ));
+                                )});
                             })()}
                         </div>
                         <div className="px-6 pb-6 flex gap-3">
@@ -418,6 +424,10 @@ await api.post('/employees/', {
 
                                     <Field label="Position" error={errors.position}>
                                         <input required name="position" type="text" value={formData.position} onChange={handleChange} placeholder="Software Developer" className={inputCls(errors.position)} />
+                                    </Field>
+
+                                    <Field label="Salary (Monthly)" error={errors.salary}>
+                                        <input required name="salary" type="text" value={formData.salary} onChange={handleChange} placeholder="50000" className={inputCls(errors.salary)} />
                                     </Field>
 
                                     <Field label="Date of Birth" error={errors.dob}>

@@ -1,269 +1,282 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const Company = require("../models/Company");
+const Employee = require("../models/Employee");
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const PHONE_REGEX = /^[0-9]{10}$/;
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&^()\-_=+{};:,./\\|~`[\]<>])[A-Za-z\d@$!%*?#&^()\-_=+{};:,./\\|~`[\]<>]{8,}$/;
 
-/* =========================
-   REGISTER ADMIN + COMPANY
-========================= */
-const registerAdmin = async (req, res) => {
+const normalizeString = (value) => (typeof value === "string" ? value.trim() : value);
+const normalizeDateValue = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const registerCompany = async (req, res) => {
   try {
-    const {
-      companyName,
-      companyAddress,
-      companyPhone,
-      adminName,
-      adminEmail,
-      password,
-      confirmPassword,
-    } = req.body;
+const { name, address, adminEmail, password } = req.body;    
+    const existingCompany = await Company.findOne({ name});
+    if (existingCompany) return res.status(400).json({ message: "Company already registered" });
 
-    // ✅ REGEX
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const nameRegex = /^[A-Za-z\s]+$/;
-    const phoneRegex = /^\d{10}$/;
-    const passwordRegex =
-      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
+    const existingUser = await User.findOne({ email: adminEmail });
+    if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
-    // ✅ TRIM INPUT
-    const trimmedData = {
-      companyName: companyName?.trim(),
-      companyAddress: companyAddress?.trim(),
-      companyPhone: companyPhone?.trim(),
-      adminName: adminName?.trim(),
-      adminEmail: adminEmail?.trim(),
-      password,
-      confirmPassword,
-    };
+   const company = await Company.create({
+  name,
+  address,
+  adminEmail,
+  status: "PENDING"
+});
 
-    // ✅ REQUIRED
-    if (
-      !trimmedData.companyName ||
-      !trimmedData.companyAddress ||
-      !trimmedData.companyPhone ||
-      !trimmedData.adminName ||
-      !trimmedData.adminEmail ||
-      !trimmedData.password ||
-      !trimmedData.confirmPassword
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // ✅ NAME VALIDATION
-    if (!nameRegex.test(trimmedData.companyName)) {
-      return res.status(400).json({ message: "Invalid company name" });
-    }
-
-    if (!nameRegex.test(trimmedData.adminName)) {
-      return res.status(400).json({ message: "Invalid admin name" });
-    }
-
-    // ✅ PHONE VALIDATION
-    if (!phoneRegex.test(trimmedData.companyPhone)) {
-      return res.status(400).json({
-        message: "Phone number must be exactly 10 digits",
-      });
-    }
-
-    // ✅ EMAIL VALIDATION
-    if (!emailRegex.test(trimmedData.adminEmail)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
-
-    // ✅ PASSWORD STRENGTH
-    if (!passwordRegex.test(trimmedData.password)) {
-      return res.status(400).json({
-        message:
-          "Password must be 8+ chars with letter, number & special character",
-      });
-    }
-
-    // ✅ PASSWORD MATCH
-    if (trimmedData.password !== trimmedData.confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
-    }
-
-    // ✅ CHECK EXISTING USER
-    const existingUser = await User.findOne({
-      email: trimmedData.adminEmail,
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    // ✅ CREATE COMPANY
-    const company = await Company.create({
-      companyName: trimmedData.companyName,
-      companyAddress: trimmedData.companyAddress,
-      companyPhone: trimmedData.companyPhone,
-      status: "Pending", // ✅ important
-    });
-    const hashedPassword = await bcrypt.hash(trimmedData.password, 10);
-
-    // ✅ CREATE ADMIN
+    const hashedPassword = await bcrypt.hash(password, 10);
     const admin = await User.create({
-      name: trimmedData.adminName,
-      email: trimmedData.adminEmail,
+      name: "Admin",
+      email: adminEmail,
       password: hashedPassword,
       role: "ADMIN",
-      company: company._id,
+      companyId: company._id
     });
 
-    res.status(201).json({
-      message: "Company registered successfully",
-      admin: {
-        id: admin._id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-      },
-    });
+    
 
+    res.status(201).json({ message: "Company registration pending approval", company, admin });
   } catch (error) {
-    console.error("Register Error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* =========================
-   UNIFIED LOGIN (Admin + HR + Employee)
-========================= */
-const loginAdmin = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ message: "Email and password required" });
+    const user = await User.findOne({ email }).populate("companyId");
 
-    const user = await User.findOne({ email }).populate("company");
-    if (!user)
-      return res.status(400).json({ message: "Invalid credentials" });
-    // ✅ BLOCK LOGIN IF COMPANY NOT APPROVED
-    if (
-      user.role !== "SUPER_ADMIN" &&
-      user.company &&
-      user.company.status !== "Approved"
-    ) {
-      return res.status(403).json({
-        message: "Your company is not approved yet. Please wait for Super Admin approval.",
-      });
-    }
-
-    // Allow ADMIN, HR and EMPLOYEE to login
-    if (!["SUPER_ADMIN", "ADMIN", "HR", "EMPLOYEE"].includes(user.role))
-      return res.status(403).json({ message: "Access denied" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Invalid credentials" });
-
-    const token = jwt.sign(
-      { userId: user._id, role: user.role, companyId: user.company?._id || user.company },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
-
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
-
-    res.status(200).json({
-      message: "Login successful",
-      token,
-      role: user.role,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        company: user.company?.companyName || null,
-      },
-    });
-  } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-/* =========================
-   GOOGLE LOGIN
-========================= */
-const googleLoginAdminSimple = async (req, res) => {
-  try {
-    const { credential } = req.body;
-    if (!credential)
-      return res.status(400).json({ message: "Google credential required" });
-
-    const ticket = await client.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
-    const { email, name } = ticket.getPayload();
-
-    let user = await User.findOne({ email });
     if (!user) {
-      user = await User.create({ name, email, password: "google-auth", role: "ADMIN" });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // ✅ HANDLE OLD + NEW PASSWORDS
+    let isMatch = false;
+
+    if (
+      user.password.startsWith("$2a$") ||
+      user.password.startsWith("$2b$")
+    ) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      // plain text password (old data)
+      isMatch = password === user.password;
+
+      // 🔥 AUTO CONVERT TO HASHED
+      if (isMatch) {
+        const hashed = await bcrypt.hash(password, 10);
+        user.password = hashed;
+        await user.save();
+      }
+    }
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // ✅ SAFE ROLE HANDLING
+    const role = user.role || "EMPLOYEE";
+
+    // ✅ SAFE COMPANY CHECK
+    if (role !== "SUPER_ADMIN") {
+      if (!user.companyId) {
+        return res.status(403).json({ message: "Company not assigned" });
+      }
+
+      // allow login if status missing (old data)
+      if (
+        user.companyId.status &&
+        user.companyId.status !== "APPROVED"
+      ) {
+        return res.status(403).json({
+          message: `Company is ${user.companyId.status}`,
+        });
+      }
+    }
+
+    // ✅ GENERATE TOKEN
     const token = jwt.sign(
-      { userId: user._id, role: user.role, companyId: user.company },
+      {
+        id: user._id,
+        role: role,
+        companyId: user.companyId?._id,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    res.status(200).json({
-      message: "Google login successful",
+    res.json({
       token,
-      role: user.role,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        role: role,
+        companyId: user.companyId?._id,
+      },
     });
+
   } catch (error) {
-    console.error("Google Login Error:", error);
-    res.status(500).json({ message: "Google login failed" });
+    res.status(500).json({ message: error.message });
   }
 };
-
-/* =========================
-   GET PROFILE
-========================= */
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-password").populate("company");
+    const user = await User.findById(req.user.id).select("-password").populate("companyId");
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json({ user });
+    res.json(user);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* =========================
-   UPDATE PROFILE
-========================= */
 const updateProfile = async (req, res) => {
   try {
-    const { name, phone, department, dob } = req.body;
-    const updated = await User.findByIdAndUpdate(
-      req.user.userId,
-      { name, phone, department, dob },
-      { new: true }
-    ).select("-password").populate("company");
-    res.status(200).json({ message: "Profile updated", user: updated });
+    const currentUser = await User.findById(req.user.id).select("_id role");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const allowedFieldMap = {
+      SUPER_ADMIN: ["name", "phone"],
+      ADMIN: ["name", "phone"],
+      HR: ["name", "phone"],
+      EMPLOYEE: ["name", "phone", "dob"],
+    };
+
+    const allowedFields = allowedFieldMap[currentUser.role] || ["name"];
+    const updates = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body.hasOwnProperty(field) && req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ message: "No valid profile fields provided" });
+    }
+
+    if (updates.name !== undefined) {
+      updates.name = normalizeString(updates.name);
+      if (!updates.name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+      if (updates.name.length > 80) {
+        return res.status(400).json({ message: "Name is too long" });
+      }
+    }
+
+    if (updates.phone !== undefined) {
+      updates.phone = normalizeString(updates.phone);
+      if (updates.phone && !PHONE_REGEX.test(updates.phone)) {
+        return res.status(400).json({ message: "Phone must be exactly 10 digits" });
+      }
+    }
+
+    if (updates.email !== undefined) {
+      updates.email = normalizeString(updates.email)?.toLowerCase();
+      if (!EMAIL_REGEX.test(updates.email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+    }
+
+    if (updates.dob !== undefined) {
+      const normalizedDob = normalizeDateValue(updates.dob);
+      if (!normalizedDob) {
+        return res.status(400).json({ message: "Invalid date of birth" });
+      }
+      const now = new Date();
+      if (normalizedDob > now) {
+        return res.status(400).json({ message: "Date of birth cannot be in the future" });
+      }
+      updates.dob = normalizedDob;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updates, {
+      new: true,
+      runValidators: true,
+    }).select("-password").populate("companyId");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (["EMPLOYEE", "HR"].includes(updatedUser.role)) {
+      const employeePatch = {};
+      if (updates.name !== undefined) employeePatch.name = updates.name;
+      if (updates.phone !== undefined) employeePatch.phone = updates.phone;
+      if (updates.dob !== undefined) employeePatch.dob = updates.dob;
+
+      if (Object.keys(employeePatch).length) {
+        await Employee.findOneAndUpdate(
+          { userId: updatedUser._id },
+          { $set: employeePatch },
+          { new: false }
+        );
+      }
+    }
+
+    res.json({ user: updatedUser });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* =========================
-   LOGOUT
-========================= */
-const logout = async (req, res) => {
-  res.status(200).json({ message: "Logged out successfully" });
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "All password fields are required" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New password and confirm password do not match" });
+    }
+
+    if (!PASSWORD_REGEX.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: "New password must be different from current password" });
+    }
+
+    const user = await User.findById(req.user.id).select("+password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let isCurrentPasswordValid = false;
+    if (user.password.startsWith("$2a$") || user.password.startsWith("$2b$")) {
+      isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    } else {
+      isCurrentPasswordValid = currentPassword === user.password;
+    }
+
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 };
 
-module.exports = { registerAdmin, loginAdmin, googleLoginAdminSimple, logout, getMe, updateProfile };
+module.exports = { registerCompany, login, getMe, updateProfile, changePassword };

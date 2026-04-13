@@ -60,11 +60,13 @@ const Login = () => {
     try {
       const res = await api.post("/auth/login", { email, password });
 
+      const fetchedRole = res.data.user?.role || res.data.role;
+
       localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.role);
+      localStorage.setItem("role", fetchedRole);
 
       toast.success("Login successful", { id: loadingToast });
-      setTimeout(() => redirectByRole(res.data.role), 1200);
+      setTimeout(() => redirectByRole(fetchedRole), 1200);
 
     } catch (err) {
       toast.error(
@@ -85,11 +87,13 @@ const Login = () => {
         credential: credentialResponse.credential,
       });
 
+      const fetchedRole = res.data.user?.role || res.data.role;
+
       localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.role);
+      localStorage.setItem("role", fetchedRole);
 
       toast.success("Google login successful", { id: loadingToast });
-      redirectByRole(res.data.role);
+      redirectByRole(fetchedRole);
 
     } catch (err) {
       toast.error(
@@ -167,6 +171,7 @@ const Login = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -208,13 +213,7 @@ const Login = () => {
               <hr className="flex-grow border-gray-200 dark:border-gray-700" />
             </div>
 
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => toast.error("Google Login Failed")}
-                width="240"
-              />
-            </div>
+           
 
             <div className="text-center text-sm mt-3 text-gray-600 dark:text-gray-400">
               Don&apos;t have an account?{" "}

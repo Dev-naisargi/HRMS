@@ -18,7 +18,7 @@ const EmployeeReport = () => {
     try {
       const res = await api.get("/employees");
       setEmployees(res.data.employees || []);
-    } catch (err) {
+    } catch {
       console.error("Failed to fetch employees");
     } finally {
       setLoading(false);

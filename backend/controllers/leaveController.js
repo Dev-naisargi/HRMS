@@ -1,206 +1,108 @@
 const Leave = require("../models/Leave");
 
-/* Apply Leave (Employee)*/
-
 const applyLeave = async (req, res) => {
   try {
-
-    const { type, from, to, reason } = req.body;
-
-    if (!type || !from || !to || !reason) {
-      return res.status(400).json({
-        message: "All fields are required"
-      });
-    }
-
-    const startDate = new Date(from);
-    const endDate = new Date(to);
-
-    if (startDate > endDate) {
-      return res.status(400).json({
-        message: "Invalid leave dates"
-      });
-    }
-
-    /*  Check overlapping leave  */
-
-    const overlap = await Leave.findOne({
-      employee: req.user.userId,
-      status: { $in: ["Pending", "Approved"] },
-      $or: [
-        { from: { $lte: endDate }, to: { $gte: startDate } }
-      ]
-    });
-
-    if (overlap) {
-      return res.status(400).json({
-        message: "Leave dates overlap with existing leave"
-      });
-    }
-
-    /*  Calculate total leave days  */
-
-    const totalDays =
-      Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-    /*  Create leave */
-
+    const { startDate, endDate, type, reason } = req.body;
+    const duration = (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24) + 1;
+    
     const leave = await Leave.create({
-      employee: req.user.userId,
-      company: req.user.companyId,
+      employeeId: req.user.id,
+      companyId: req.user.companyId,
+      startDate,
+      endDate,
       type,
-      from: startDate,
-      to: endDate,
       reason,
-      totalDays,
-      status: "Pending"
+      duration,
+      adminApproval: duration > 5 ? 'PENDING' : 'NA'
     });
 
-    res.status(201).json({
-      message: "Leave applied successfully",
-      leave
-    });
-
+    res.status(201).json(leave);
   } catch (error) {
-    console.error("Apply Leave Error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
-
-
-/*Get My Leaves (Employee)*/
-
-const getMyLeaves = async (req, res) => {
+const getLeaves = async (req, res) => {
   try {
-
-    const leaves = await Leave.find({
-      employee: req.user.userId
-    }).sort({ createdAt: -1 });
-
-    res.json(leaves);
-
-  } catch (error) {
-    console.error("Get My Leaves Error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-
-
-/*Get Company Leaves (HR/Admin)*/
-
-const getCompanyLeaves = async (req, res) => {
-  try {
-
-    const leaves = await Leave.find({
-      company: req.user.companyId
-    })
-      .populate("employee", "name email department")
-      .sort({ createdAt: -1 });
-
-    res.json(leaves);
-
-  } catch (error) {
-    console.error("Get Company Leaves Error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-
-
-/* Update Leave Status (HR/Admin)*/
-
-const updateLeaveStatus = async (req, res) => {
-  try {
-
-    const { status } = req.body;
-
-    if (!["Approved", "Rejected"].includes(status)) {
-      return res.status(400).json({
-        message: "Invalid status"
-      });
+    const query = { companyId: req.user.companyId };
+    if (req.user.role === "EMPLOYEE") {
+      query.employeeId = req.user.id;
     }
+    const leaves = await Leave.find(query).populate("employeeId", "name email");
+    res.json(leaves);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
+const approveLeaveHR = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // APPROVED or REJECTED
+    const leave = await Leave.findOne({ _id: id, companyId: req.user.companyId });
+    
+    if (!leave) return res.status(404).json({ message: "Leave not found" });
+    
+    leave.hrApproval = status;
+    
+    if (leave.duration <= 5) {
+      leave.status = status;
+    } else if (status === "REJECTED") {
+      leave.status = "REJECTED";
+    }
+    
+    await leave.save();
+
+    res.json(leave);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const approveLeaveAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const leave = await Leave.findOne({ _id: id, companyId: req.user.companyId });
+    
+    if (!leave) return res.status(404).json({ message: "Leave not found" });
+    if (leave.hrApproval !== "APPROVED") return res.status(400).json({ message: "HR approval required first" });
+    
+    leave.adminApproval = status;
+    leave.status = status;
+    
+    await leave.save();
+
+    res.json(leave);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+const deleteLeave = async (req, res) => {
+  try {
     const leave = await Leave.findById(req.params.id);
 
     if (!leave) {
-      return res.status(404).json({
-        message: "Leave not found"
-      });
+      return res.status(404).json({ message: "Leave not found" });
     }
 
-    if (leave.status !== "Pending") {
+    // ✅ Only owner can delete
+    if (leave.employeeId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // ✅ Only pending can be deleted (important)
+    if (leave.status !== "PENDING") {
       return res.status(400).json({
-        message: "Leave already processed"
-      });
-    }
-
-    leave.status = status;
-
-    await leave.save();
-
-    res.json({
-      message: `Leave ${status.toLowerCase()} successfully`,
-      leave
-    });
-
-  } catch (error) {
-    console.error("Update Leave Status Error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-
-
-/*Cancel Leave (Employee)*/
-
-const cancelLeave = async (req, res) => {
-  try {
-
-    const leave = await Leave.findOne({
-      _id: req.params.id,
-      employee: req.user.userId
-    });
-
-    if (!leave) {
-      return res.status(404).json({
-        message: "Leave not found"
-      });
-    }
-
-    if (leave.status !== "Pending") {
-      return res.status(400).json({
-        message: "Cannot cancel approved or rejected leave"
-      });
-    }
-
-    /* Prevent cancelling past leave */
-
-    if (new Date(leave.from) <= new Date()) {
-      return res.status(400).json({
-        message: "Cannot cancel leave that already started"
+        message: "Only pending leave can be deleted",
       });
     }
 
     await leave.deleteOne();
 
-    res.json({
-      message: "Leave cancelled successfully"
-    });
-
-  } catch (error) {
-    console.error("Cancel Leave Error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.json({ message: "Leave deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
-
-
-
-module.exports = {
-  applyLeave,
-  getMyLeaves,
-  getCompanyLeaves,
-  updateLeaveStatus,
-  cancelLeave
-};
+module.exports = { applyLeave, getLeaves, approveLeaveHR, approveLeaveAdmin, deleteLeave };

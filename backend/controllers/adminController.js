@@ -2,21 +2,28 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Attendance = require("../models/Attendance");
 const Leave = require("../models/Leave");
+const Employee = require("../models/Employee");
 exports.getChartData = async (req, res) => {
   try {
+
+    const employees = await Employee.find({ companyId: req.user.companyId }).select('_id');
+    const empIds = employees.map(e => e._id);
 
     /*  ATTENDANCE  */
 
     const present = await Attendance.countDocuments({
-      status: "Present"
+      status: "Present",
+      employee: { $in: empIds }
     });
 
     const absent = await Attendance.countDocuments({
-      status: "Absent"
+      status: "Absent",
+      employee: { $in: empIds }
     });
 
     // Late logic (handles both cases)
     const late = await Attendance.countDocuments({
+      employee: { $in: empIds },
       $or: [
         { status: "Late" },
         { isLate: true }
@@ -26,15 +33,18 @@ exports.getChartData = async (req, res) => {
     /*  LEAVES  */
 
     const approved = await Leave.countDocuments({
-      status: "Approved"
+      status: "Approved",
+      companyId: req.user.companyId
     });
 
     const pending = await Leave.countDocuments({
-      status: "Pending"
+      status: "Pending",
+      companyId: req.user.companyId
     });
 
     const rejected = await Leave.countDocuments({
-      status: "Rejected"
+      status: "Rejected",
+      companyId: req.user.companyId
     });
 
     res.json({
@@ -53,7 +63,7 @@ exports.getHRs = async (req, res) => {
   try {
     const hrs = await User.find({
       role: "HR",
-      company: req.user.companyId,
+      companyId: req.user.companyId,
     }).select("-password");
 
     res.status(200).json({ hrs });
@@ -177,7 +187,7 @@ exports.createHR = async (req, res) => {
       email: email.trim(),
       password: hashedPassword,
       role: "HR",
-      company: req.user.companyId,
+      companyId: req.user.companyId,
       phone,
       department,
       dob,
@@ -199,15 +209,14 @@ exports.getStats = async (req, res) => {
   try {
     const totalHR = await User.countDocuments({
       role: "HR",
-      company: req.user.companyId,
+      companyId: req.user.companyId,
     });
-    const totalEmployees = await User.countDocuments({
-      role: "EMPLOYEE",
-      company: req.user.companyId,
-    });
-    const deptData = await User.distinct("department", {
-      company: req.user.companyId,
-    });
+    const totalEmployees = await Employee.countDocuments({
+  companyId: req.user.companyId,
+});
+    const deptData = await Employee.distinct("department", {
+  companyId: req.user.companyId,
+});
     const departments = deptData.filter(Boolean).length;
 
     res.status(200).json({

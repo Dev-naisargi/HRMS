@@ -14,8 +14,22 @@ const attendanceSchema = new mongoose.Schema(
     },
 
     checkIn: Date,
-
     checkOut: Date,
+
+    // ── Break Tracking ──
+    breakStart: Date,
+    breakEnd: Date,
+    breakMinutes: {
+      type: Number,
+      default: 0,
+    },
+
+    // ── 4-Stamp Status ──
+    stampStatus: {
+      type: String,
+      enum: ["checked_in", "on_break", "resumed", "checked_out"],
+      default: "checked_in",
+    },
 
     workingHours: Number,
 

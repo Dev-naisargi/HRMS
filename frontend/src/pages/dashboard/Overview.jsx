@@ -70,9 +70,9 @@ const Overview = () => {
                     if (leaveRes.status === 'fulfilled') {
                         const leaves = Array.isArray(leaveRes.value.data) ? leaveRes.value.data : [];
                         setLeaveData([
-                            { name: 'Approved', value: leaves.filter(l => l.status === 'Approved').length },
-                            { name: 'Pending', value: leaves.filter(l => l.status === 'Pending').length },
-                            { name: 'Rejected', value: leaves.filter(l => l.status === 'Rejected').length },
+                            { name: 'Approved', value: leaves.filter(l => l.status === 'Approved' || l.status === 'APPROVED').length },
+                            { name: 'Pending', value: leaves.filter(l => l.status === 'Pending' || l.status === 'PENDING').length },
+                            { name: 'Rejected', value: leaves.filter(l => l.status === 'Rejected' || l.status === 'REJECTED').length },
                         ]);
                     } else {
                         console.error('Leave API failed:', leaveRes.reason);
@@ -89,7 +89,8 @@ const Overview = () => {
 
                     const today = new Date().toDateString();
                     const todayAttendance = attendanceList.find(a => new Date(a.date).toDateString() === today);
-                    const approvedLeaves = leaveList.filter(l => l.status === 'Approved');
+                    const approvedLeaves = leaveList.filter(l => l.status === 'Approved' || l.status === 'APPROVED');
+                    const usedLeaveDays = approvedLeaves.reduce((total, l) => total + (l.duration || 1), 0);
                     const latestPayroll = payrollList[0];
 
                     const day = new Date().getDay();
@@ -102,7 +103,7 @@ const Overview = () => {
 
                     setEmployeeData({
                         department: 'IT',
-                        leaves: Math.max(0, 12 - approvedLeaves.length),
+                        leaves: Math.max(0, 12 - usedLeaveDays),
                         todayStatus,
                         salary: latestPayroll?.netPay || 0,
                     });
@@ -151,7 +152,7 @@ const Overview = () => {
 
     const quickActionsByRole = {
         ADMIN: [
-            { label: 'Add Employee', route: '/dashboard/employees', icon: UserPlus, bgClass: 'bg-emerald-100 dark:bg-emerald-900/40', textClass: 'text-emerald-600 dark:text-emerald-300' },
+            { label: 'Add HR', route: '/dashboard/hr', icon: UserPlus, bgClass: 'bg-emerald-100 dark:bg-emerald-900/40', textClass: 'text-emerald-600 dark:text-emerald-300' },
             { label: 'Manage Payroll', route: '/dashboard/payroll', icon: DollarSign, bgClass: 'bg-blue-100 dark:bg-blue-900/40', textClass: 'text-blue-600 dark:text-blue-300' },
             { label: 'View Reports', route: '/dashboard/reports', icon: TrendingUp, bgClass: 'bg-purple-100 dark:bg-purple-900/40', textClass: 'text-purple-600 dark:text-purple-300' },
             { label: 'Approve Leaves', route: '/dashboard/leave', icon: CheckCircle, bgClass: 'bg-amber-100 dark:bg-amber-900/40', textClass: 'text-amber-600 dark:text-amber-300' },

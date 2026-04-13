@@ -1,86 +1,41 @@
-const Payroll    = require("../models/Payroll");
-const Employee   = require("../models/Employee");
-const Attendance = require("../models/Attendance");
-const Company    = require("../models/Company");
+const Payroll = require("../models/Payroll");
+const Employee = require("../models/Employee");
 const { calculateSalary } = require("../utils/salaryCalculator");
-const { calculateLeaveDeduction } = require("../utils/leaveCalculator");
 
-/* ══════════════════════════════════════════════════
-   HELPER: Calculate payroll for one employee
-   Uses real attendance data + approved leaves from DB
-   Centralized calculation for consistency
-══════════════════════════════════════════════════ */
-const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
-    // ── Fetch company salary structure ──
-    const company = await Company.findById(employee.companyId);
-    if (!company) {
-        throw new Error("Company not found");
+/**
+ * VALIDATE PAYROLL MONTH
+ * Allow only current month and previous month
+ * Block future months
+ */
+const validatePayrollMonth = (month, year) => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-11
+
+    const monthIndex = new Date(`${month} 1, ${year}`).getMonth();
+
+    // Check if payroll month is in the future
+    const selectedDate = new Date(year, monthIndex, 1);
+    const currentDate = new Date(currentYear, currentMonth, 1);
+    const previousDate = new Date(currentYear, currentMonth - 1, 1);
+
+    if (selectedDate > currentDate) {
+        throw new Error("Cannot generate payroll for future months");
     }
 
-    const salaryStructure = company.salaryStructure || {
-        hraPercent: 20,
-        allowancePercent: 10,
-        pfPercent: 12,
-        taxPercent: 10,
-        overtimeRateMultiplier: 1.5,
-        latePenaltyPerDay: 100,
-        workingDaysPerMonth: 26,
-    };
+    if (selectedDate < previousDate) {
+        throw new Error("Can only generate payroll for current or previous month");
+    }
 
-    // ── Month date range ──
-    const monthIndex = new Date(`${month} 1, ${year}`).getMonth();
-    const startDate  = new Date(year, monthIndex, 1);
-    const endDate    = new Date(year, monthIndex + 1, 0, 23, 59, 59);
+    return true;
+};
 
-    // ── Fetch attendance for this employee this month ──
-    const attendanceRecords = await Attendance.find({
-        employee: employee._id,
-        date: { $gte: startDate, $lte: endDate },
-    });
-
-    // ── Count attendance stats ──
-    const presentDays  = attendanceRecords.filter(a =>
-        a.status === "Present" || a.status === "Overtime"
-    ).length;
-    const overtimeDays = attendanceRecords.filter(a => a.status === "Overtime").length;
-    const lateDays     = attendanceRecords.filter(a => a.isLate === true).length;
-    const halfDays     = attendanceRecords.filter(a => a.status === "Half Day").length;
-
-    // ── Calculate leave deduction from approved leaves first ──
-    const leaveData = await calculateLeaveDeduction({
-        employeeId: employee._id,
-        month,
-        year,
-        monthlySalary: employee.salary || 0,
-        workingDaysPerMonth: salaryStructure.workingDaysPerMonth,
-        company,
-    });
-
-    // ── Calculate absent days (excluding approved leave days) ──
-    // Absent days = working days - present - half days - approved leave days
-    const approvedLeaveDays = leaveData.totalUnpaidDays;
-    const absentDays = Math.max(
-        0,
-        salaryStructure.workingDaysPerMonth - presentDays - halfDays - approvedLeaveDays
-    );
-
-    // ── Use centralized salary calculator ──
-    const calculation = calculateSalary({
-        monthlySalary: employee.salary || 0,
-        presentDays,
-        absentDays,
-        lateDays,
-        halfDays,
-        overtimeDays,
-        bonus: bonusOverride,
-        leaveDeduction: leaveData.leaveDeduction, // Use calculated leave deduction
-        salaryStructure,
-    });
-
-    // ── Attach leave details to calculation ──
-    calculation.leaveDetails = leaveData;
-
-    return calculation;
+/**
+ * Use centralized salary calculator
+ * This ensures consistency across preview, generation, and payslip
+ */
+const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
+    return await calculateSalary(employee, month, year, bonusOverride);
 };
 
 /* ══════════════════════════════════════════════════
@@ -90,11 +45,17 @@ const calculatePayroll = async (employee, month, year, bonusOverride = 0) => {
 const generatePayroll = async (req, res) => {
     try {
         const { month, year, bonusList = [] } = req.body;
-        // bonusList: [{ employeeId, bonus }] — optional HR overrides
         const companyId = req.user.companyId;
 
         if (!month || !year) {
             return res.status(400).json({ message: "Month and year are required." });
+        }
+
+        // ── Validate month (current or previous only) ──
+        try {
+            validatePayrollMonth(month, year);
+        } catch (error) {
+            return res.status(400).json({ message: error.message });
         }
 
         // ── Fetch all employees in company ──
@@ -110,15 +71,6 @@ const generatePayroll = async (req, res) => {
         const skipped   = [];
 
         for (const emp of employees) {
-            // Skip if already generated for this employee this month
-            const existing = await Payroll.findOne({
-                companyId, month, year, employeeId: emp._id
-            });
-            if (existing) {
-                skipped.push(emp.name);
-                continue;
-            }
-
             // Get bonus override for this employee if HR provided one
             const bonusEntry  = bonusList.find(b => b.employeeId === emp._id.toString());
             const bonusAmount = bonusEntry ? bonusEntry.bonus : 0;
@@ -126,13 +78,35 @@ const generatePayroll = async (req, res) => {
             // Calculate payroll using real attendance
             const calc = await calculatePayroll(emp, month, year, bonusAmount);
 
+            // Check if already generated for this employee this month
+            const existing = await Payroll.findOne({
+                companyId, month, year, employeeId: emp._id
+            });
+
+            if (existing) {
+                // Update existing payroll (retain status if already approved/paid, otherwise keep draft)
+                const statusToUse = existing.status === 'PAID' ? 'PAID' : existing.status || 'DRAFT';
+
+                const updatedPayroll = await Payroll.findOneAndUpdate(
+                    { _id: existing._id },
+                    {
+                        ...calc,
+                        status: statusToUse,
+                        updatedAt: new Date(),
+                    },
+                    { new: true }
+                );
+
+                results.push(updatedPayroll);
+                continue;
+            }
+
             const payroll = await Payroll.create({
                 employeeId: emp._id,
                 companyId,
                 month,
                 year,
                 ...calc,
-                workingDays: calc.workingDaysPerMonth,
                 status: 'DRAFT',
             });
 
@@ -160,6 +134,13 @@ const getPayrollPreview = async (req, res) => {
 
         if (!month || !year) {
             return res.status(400).json({ message: "Month and year are required." });
+        }
+
+        // ── Validate month (current or previous only) ──
+        try {
+            validatePayrollMonth(month, year);
+        } catch (error) {
+            return res.status(400).json({ message: error.message });
         }
 
         let employees = await Employee.find({ companyId });

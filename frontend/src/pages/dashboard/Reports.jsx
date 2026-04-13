@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import ReusableTable from '../../components/ReusableTable';
 import api from '../../utils/api';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, File } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
     BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, CartesianGrid,
     ResponsiveContainer, Legend
 } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const TABS = ['Employees', 'Attendance', 'Leave'];
 const COLORS = ['#10b981', '#ef4444', '#f59e0b'];
@@ -17,23 +19,20 @@ const Reports = () => {
     const [employees, setEmployees] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [leaves, setLeaves] = useState([]);
-    const [charts, setCharts] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchAll = async () => {
             setLoading(true);
             try {
-                const [empRes, attRes, leaveRes, chartRes] = await Promise.all([
+                const [empRes, attRes, leaveRes] = await Promise.all([
                     api.get('/employees/'),                   // { employees: [...] }
                     api.get('/attendance/all'),               // raw array with populated employee
-                    api.get('/leave '),                // raw array with populated employee
-                    api.get('/admin/charts').catch(() => ({ data: null })), // { attendance:{}, leaves:{} }
+                    api.get('/leave'),                // raw array with populated employee
                 ]);
-setEmployees(empRes.data || []);       
-         setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
+                setEmployees(empRes.data || []);
+                setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
                 setLeaves(Array.isArray(leaveRes.data) ? leaveRes.data : []);
-                setCharts(chartRes.data);
             } catch (err) {
                 console.error('Reports fetch error:', err);
             } finally {
@@ -43,10 +42,6 @@ setEmployees(empRes.data || []);
         fetchAll();
     }, []);
 
-    const fetchLeaves = async () => {
-        const res = await api.get('/leave');
-        setLeaves(Array.isArray(res.data) ? res.data : []);
-    };
     // Export functions
     const exportToCSV = (data, filename) => {
         if (!data || data.length === 0) {
@@ -55,7 +50,7 @@ setEmployees(empRes.data || []);
         }
 
         let csvContent = "";
-        
+
         if (activeTab === 'Employees') {
             csvContent = "Name,Email,Department,Position,Joined Date\n";
             data.forEach(emp => {
@@ -92,7 +87,7 @@ setEmployees(empRes.data || []);
         }
 
         let htmlContent = "";
-        
+
         if (activeTab === 'Employees') {
             htmlContent = `
                 <table border="1" style="border-collapse: collapse; width: 100%;">
@@ -168,9 +163,67 @@ setEmployees(empRes.data || []);
         toast.success(`${filename} exported to Excel`);
     };
 
+    const exportToPDF = (data, filename) => {
+        if (!data || data.length === 0) {
+            toast.error("No data to export");
+            return;
+        }
+
+        const doc = new jsPDF();
+        doc.text(`${filename.replace('_', ' ').toUpperCase()}`, 14, 15);
+
+        let head = [];
+        let body = [];
+
+        if (activeTab === 'Employees') {
+            head = [['Name', 'Email', 'Department', 'Position', 'Joined Date']];
+            body = data.map(emp => [
+                emp.name,
+                emp.email,
+                emp.department || 'N/A',
+                emp.designation || 'N/A',
+                emp.doj ? new Date(emp.doj).toLocaleDateString() : 'N/A'
+            ]);
+        } else if (activeTab === 'Attendance') {
+            head = [['Employee', 'Department', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']];
+            body = data.map(att => [
+                att.employee?.name || 'N/A',
+                att.employee?.department || 'N/A',
+                att.date ? new Date(att.date).toLocaleDateString() : 'N/A',
+                att.checkIn ? new Date(att.checkIn).toLocaleTimeString() : 'N/A',
+                att.checkOut ? new Date(att.checkOut).toLocaleTimeString() : 'N/A',
+                att.workingHours || 'N/A',
+                att.status || 'N/A'
+            ]);
+        } else if (activeTab === 'Leave') {
+            head = [['Employee', 'Department', 'Type', 'From', 'To', 'Days', 'Status']];
+            body = data.map(leave => [
+                leave.employeeId?.name || 'N/A',
+                leave.employeeId?.department || 'N/A',
+                leave.type || 'N/A',
+                leave.startDate ? new Date(leave.startDate).toLocaleDateString() : 'N/A',
+                leave.endDate ? new Date(leave.endDate).toLocaleDateString() : 'N/A',
+                leave.duration || 'N/A',
+                leave.status || 'N/A'
+            ]);
+        }
+
+        autoTable(doc, {
+            head: head,
+            body: body,
+            startY: 20,
+            theme: 'striped',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [16, 185, 129] }
+        });
+
+        doc.save(`${filename}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        toast.success(`${filename} exported to PDF`);
+    };
+
     const handleExportCurrentData = (format) => {
         let data, filename;
-        
+
         if (activeTab === 'Employees') {
             data = employees;
             filename = 'employees_report';
@@ -186,6 +239,8 @@ setEmployees(empRes.data || []);
             exportToCSV(data, filename);
         } else if (format === 'excel') {
             exportToExcel(data, filename);
+        } else if (format === 'pdf') {
+            exportToPDF(data, filename);
         }
     };
 
@@ -238,25 +293,25 @@ setEmployees(empRes.data || []);
             ),
         },
         { header: 'Department', accessor: 'department' },
-       { header: 'Position', accessor: 'designation' },
+        { header: 'Position', accessor: 'designation' },
         {
             header: 'Joined',
             render: (row) => <span>{row.doj ? new Date(row.doj).toLocaleDateString() : '—'}</span>,
         },
     ];
 
-   const attColumns = [
-  {
-    header: 'Employee',
-    render: (row) => (
-      <span className="font-medium text-gray-800 dark:text-gray-200">
-        {row.employee?.name || '—'}
-        <span className="block text-[10px] text-gray-400">
-          {row.employee?.department || ''}
-        </span>
-      </span>
-    ),
-  },
+    const attColumns = [
+        {
+            header: 'Employee',
+            render: (row) => (
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                    {row.employee?.name || '—'}
+                    <span className="block text-[10px] text-gray-400">
+                        {row.employee?.department || ''}
+                    </span>
+                </span>
+            ),
+        },
         { header: 'Date', render: (row) => <span>{row.date ? new Date(row.date).toLocaleDateString() : '—'}</span> },
         { header: 'Check In', render: (row) => <span>{row.checkIn ? new Date(row.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span> },
         { header: 'Check Out', render: (row) => <span>{row.checkOut ? new Date(row.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span> },
@@ -269,7 +324,7 @@ setEmployees(empRes.data || []);
             header: 'Employee',
             render: (row) => (
                 <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {row.employeeId?.name  || '—'}
+                    {row.employeeId?.name || '—'}
                     <span className="block text-[10px] text-gray-400">{row.employeeId?.department || ''}</span>
                 </span>
             ),
@@ -297,13 +352,16 @@ setEmployees(empRes.data || []);
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports & Data Export</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View and export company data in multiple formats.</p>
                 </div>
-                
+
                 <div className="flex gap-2">
-                    <button onClick={() => handleExportCurrentData('csv')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    <button onClick={() => handleExportCurrentData('csv')} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-bold hover:from-emerald-600 hover:to-emerald-700 transition duration-300 shadow-sm active:scale-95">
                         <Download size={16} /> CSV
                     </button>
-                    <button onClick={() => handleExportCurrentData('excel')} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    <button onClick={() => handleExportCurrentData('excel')} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-bold hover:from-emerald-600 hover:to-emerald-700 transition duration-300 shadow-sm active:scale-95">
                         <FileText size={16} /> Excel
+                    </button>
+                    <button onClick={() => handleExportCurrentData('pdf')} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg text-sm font-bold hover:from-emerald-600 hover:to-emerald-700 transition duration-300 shadow-sm active:scale-95">
+                        <File size={16} /> PDF
                     </button>
                 </div>
             </div>
@@ -313,8 +371,8 @@ setEmployees(empRes.data || []);
                 {TABS.map((tab) => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                         className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab
-                                ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                             }`}>
                         {tab}
                         <span className="ml-1.5 text-[10px] font-bold text-gray-400">

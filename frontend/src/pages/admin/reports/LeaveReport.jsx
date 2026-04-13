@@ -28,7 +28,7 @@ const LeaveReport = () => {
 
         setLeaves(res.data);
 
-      } catch (err) {
+      } catch {
 
         console.error("Failed to fetch leave report");
 

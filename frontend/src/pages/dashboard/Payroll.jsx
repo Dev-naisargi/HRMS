@@ -14,8 +14,8 @@ const Toast = ({ toast }) => {
     if (!toast.show) return null;
     return (
         <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-sm transition-all duration-300 ${toast.type === 'success'
-                ? 'bg-emerald-50/95 border-emerald-200 text-emerald-800 dark:bg-emerald-900/90 dark:border-emerald-800 dark:text-emerald-200'
-                : 'bg-red-50/95 border-red-200 text-red-800 dark:bg-red-900/90 dark:border-red-800 dark:text-red-200'
+            ? 'bg-emerald-50/95 border-emerald-200 text-emerald-800 dark:bg-emerald-900/90 dark:border-emerald-800 dark:text-emerald-200'
+            : 'bg-red-50/95 border-red-200 text-red-800 dark:bg-red-900/90 dark:border-red-800 dark:text-red-200'
             }`}>
             {toast.type === 'success' ? <CheckCircle2 size={18} className="shrink-0" /> : <AlertCircle size={18} className="shrink-0" />}
             <span className="text-sm font-semibold">{toast.message}</span>
@@ -63,12 +63,12 @@ const Payroll = () => {
 
     const confirmAndExecuteAction = async () => {
         if (!confirmAction) return;
-        
+
         setActionLoading(true);
         try {
             await api.put(`/payroll/${confirmAction.id}/${confirmAction.action}`, confirmAction.body);
             triggerToast(`Payroll ${confirmAction.action} successful!`);
-            
+
             // Update the selected payroll if it's open
             if (selectedPayroll && selectedPayroll._id === confirmAction.id) {
                 const updatedStatus = confirmAction.action === 'approve' ? 'APPROVED' : confirmAction.action === 'pay' ? 'PAID' : 'REJECTED';
@@ -295,17 +295,16 @@ const Payroll = () => {
                             {/* Status */}
                             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Status</h4>
-                                <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
-                                    selectedPayroll.status === "PAID"
+                                <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${selectedPayroll.status === "PAID"
                                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                                         : selectedPayroll.status === "APPROVED"
-                                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                                        : selectedPayroll.status === "PENDING"
-                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                                        : selectedPayroll.status === "REJECTED"
-                                        ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                                        : "bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300"
-                                }`}>
+                                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                            : selectedPayroll.status === "PENDING"
+                                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                                : selectedPayroll.status === "REJECTED"
+                                                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                                                    : "bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300"
+                                    }`}>
                                     <span className="w-2 h-2 rounded-full mr-2 bg-current" />
                                     {selectedPayroll.status || "DRAFT"}
                                 </span>
@@ -364,7 +363,7 @@ const Payroll = () => {
                                         setSelectedPayroll(null);
                                         setPayslipModal(selectedPayroll);
                                     }}
-                                    className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold transition"
+                                    className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition"
                                 >
                                     View Full Payslip
                                 </button>
@@ -416,11 +415,10 @@ const Payroll = () => {
                                 <button
                                     onClick={confirmAndExecuteAction}
                                     disabled={actionLoading}
-                                    className={`flex-1 px-4 py-3 text-white rounded-xl font-semibold transition disabled:opacity-50 ${
-                                        confirmAction.action === "approve" || confirmAction.action === "pay"
+                                    className={`flex-1 px-4 py-3 text-white rounded-xl font-semibold transition disabled:opacity-50 ${confirmAction.action === "approve" || confirmAction.action === "pay"
                                             ? "bg-emerald-600 hover:bg-emerald-700"
                                             : "bg-red-600 hover:bg-red-700"
-                                    }`}
+                                        }`}
                                 >
                                     {actionLoading ? "Processing..." : confirmAction.action?.charAt(0).toUpperCase() + confirmAction.action?.slice(1)}
                                 </button>
@@ -658,7 +656,7 @@ const GeneratePayrollModal = ({ isOpen, onClose, onSuccess }) => {
                             <button
                                 disabled={processing || !selectedEmployeeId}
                                 onClick={handleConfirm}
-                                className="bg-slate-900 hover:bg-slate-800 disabled:hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:disabled:hover:bg-white text-white dark:text-slate-900 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all"
+                                className="bg-emerald-600 hover:bg-emerald-600 disabled:hover:bg-emerald-500 text-white w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl disabled:opacity-50 transition-all"
                             >
                                 {processing ? 'Processing...' : `Generate for ${selectedEmployee?.name || 'Select Employee'}`}
                             </button>
@@ -900,7 +898,7 @@ const PayslipModal = ({ payroll, onClose }) => {
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net Payable</span>
                         <p className="text-3xl font-black text-white italic">₹{payroll.netPay?.toLocaleString()}</p>
                     </div>
-                    <button onClick={handleDownload} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all" title="Download PDF">
+                    <button onClick={handleDownload} className="p-3 bg-emerald-400 hover:bg-emerald-500 text-white rounded-2xl transition-all" title="Download PDF">
                         <Download size={20} />
                     </button>
                 </div>

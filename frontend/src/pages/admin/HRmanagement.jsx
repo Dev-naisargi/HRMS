@@ -55,121 +55,132 @@ const HRmanagement = () => {
   // Validation
   // -------------------------
   const validateField = (name, value, data = formData) => {
-  let error = "";
+    let error = "";
 
-  const nameRegex = /^[A-Za-z\s]+$/;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRegex = /^\d{10}$/;
-  const passwordRegex =
-    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
+    const nameRegex = /^[A-Za-z\s\-']+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\d{10}$/;
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
 
-  const today = new Date();
-  const dobDate = data.dob ? new Date(data.dob) : null;
-  const dojDate = data.doj ? new Date(data.doj) : null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  // REQUIRED
-  if (!value) {
-    error = "Required";
-  }
+    // REQUIRED CHECK
+    if (!value && !(isEditing && name === "password")) {
+      error = "This field is required";
+    } else if (value) {
+      if (name === "name") {
+        if (!nameRegex.test(value)) error = "Only letters, spaces, hyphens, and apostrophes allowed";
+        else if (value.trim().length < 3) error = "Must be at least 3 characters";
+        else if (value.length > 50) error = "Cannot exceed 50 characters";
+      }
 
-  // NAME
-  if (name === "name" && value) {
-    if (!nameRegex.test(value)) error = "Only letters allowed";
-    else if (value.length < 3) error = "Min 3 characters";
-    else if (value.length > 50) error = "Too long";
-  }
+      if (name === "email") {
+        if (!emailRegex.test(value)) error = "Please enter a valid email address";
+      }
 
-  // EMAIL
-  if (name === "email" && value) {
-    if (!emailRegex.test(value)) error = "Invalid email";
-  }
+      if (name === "phone") {
+        if (!phoneRegex.test(value)) error = "Phone number must be exactly 10 digits";
+      }
 
-  // PHONE
-  if (name === "phone" && value) {
-    if (!phoneRegex.test(value)) error = "Must be 10 digits";
-  }
+      if (name === "password" && !isEditing) {
+        if (!passwordRegex.test(value)) {
+          error = "At least 8 chars, 1 letter, 1 number, 1 special char";
+        }
+      }
 
-  // PASSWORD
-  if (name === "password" && value && !isEditing) {
-    if (!passwordRegex.test(value)) {
-      error = "Weak password";
-    }
-  }
+      if (name === "dob") {
+        const dobDate = new Date(value);
+        if (dobDate >= today) {
+          error = "Date of Birth must be in the past";
+        } else {
+          let age = today.getFullYear() - dobDate.getFullYear();
+          const m = today.getMonth() - dobDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age--;
+          if (age < 18) error = "Must be at least 18 years old";
+        }
+      }
 
-  // DOB VALIDATION
-  if (name === "dob" && value) {
-    const dob = new Date(value);
-
-    if (dob >= today) {
-      error = "DOB must be in past";
-    } else {
-      const age = today.getFullYear() - dob.getFullYear();
-      if (age < 18) error = "Must be 18+";
-    }
-  }
-
-  // DOJ VALIDATION
-  if (name === "doj" && value) {
-    const doj = new Date(value);
-
-    if (doj > today) {
-      error = "DOJ cannot be future";
-    }
-
-    if (data.dob) {
-      const dob = new Date(data.dob);
-      if (doj <= dob) {
-        error = "DOJ must be after DOB";
+      if (name === "doj") {
+        const dojDate = new Date(value);
+        if (dojDate > today) {
+          error = "Joining Date cannot be in the future";
+        }
+        if (data.dob) {
+          const dobForDoj = new Date(data.dob);
+          if (dojDate <= dobForDoj) {
+            error = "Joining Date must be after Date of Birth";
+          } else {
+            // Also ensure DOJ is at least 18 years after DOB
+            let ageAtJoin = dojDate.getFullYear() - dobForDoj.getFullYear();
+            const m = dojDate.getMonth() - dobForDoj.getMonth();
+            if (m < 0 || (m === 0 && dojDate.getDate() < dobForDoj.getDate())) ageAtJoin--;
+            if (ageAtJoin < 18) error = "Employee must have been 18+ at joining date";
+          }
+        }
       }
     }
-  }
 
-  setErrors((prev) => ({ ...prev, [name]: error }));
-};
+    setErrors((prev) => ({ ...prev, [name]: error }));
+    return error;
+  };
+
   const handleChange = (e) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
+    let newValue = value;
 
-  let newValue = value;
+    if (name === "name") {
+      newValue = value.replace(/[^A-Za-z\s\-']/g, "");
+    }
 
-  if (name === "name") {
-    newValue = value.replace(/[^A-Za-z\s]/g, "");
-  }
+    const updated = { ...formData, [name]: newValue };
+    setFormData(updated);
 
-  const updated = { ...formData, [name]: newValue };
-  setFormData(updated);
-  validateField(name, newValue, updated);
-};
+    // Validate current field
+    validateField(name, newValue, updated);
+
+    // Cross-field validation triggers
+    if (name === "dob" && updated.doj) validateField("doj", updated.doj, updated);
+    if (name === "doj" && updated.dob) validateField("dob", updated.dob, updated);
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    validateField(name, value, formData);
+  };
 
   // -------------------------
   // Create or Update HR
   // -------------------------
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  let newErrors = {};
+    let newErrors = {};
+    let hasError = false;
 
-  Object.keys(formData).forEach((key) => {
-    if (!formData[key]) {
-      newErrors[key] = "Required";
+    // Validate all fields
+    Object.keys(formData).forEach((key) => {
+      const err = validateField(key, formData[key], formData);
+      if (err) {
+        newErrors[key] = err;
+        hasError = true;
+      }
+    });
+
+    if (hasError) {
+      triggerToast("Please fix the validation errors before submitting", "error");
+      return;
     }
-  });
 
-  setErrors(newErrors);
-
-  if (Object.keys(newErrors).length > 0) {
-    triggerToast("Please fix all fields", "error");
-    return;
-  }
-
-  if (Object.values(errors).some((err) => err !== "")) return;
     setLoading(true);
     try {
       if (isEditing) {
-        // Update HR
-        await api.put(`/admin/hrs/${isEditing}`, formData);
+        const updateData = { ...formData };
+        if (!updateData.password) delete updateData.password;
+
+        await api.put(`/admin/hrs/${isEditing}`, updateData);
         triggerToast("HR record updated successfully!");
       } else {
-        // Create HR — calls your backend adminController.createHR
         await api.post("/admin/create-hr", {
           name: formData.name,
           email: formData.email,
@@ -227,11 +238,10 @@ const HRmanagement = () => {
       {/* Toast */}
       {toast.show && (
         <div
-          className={`fixed top-10 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-top-full duration-300 ${
-            toast.type === "success"
-              ? "bg-emerald-50 border-emerald-100 text-emerald-800"
-              : "bg-red-50 border-red-100 text-red-800"
-          }`}
+          className={`fixed top-10 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-top-full duration-300 ${toast.type === "success"
+            ? "bg-emerald-50 border-emerald-100 text-emerald-800"
+            : "bg-red-50 border-red-100 text-red-800"
+            }`}
         >
           {toast.type === "success" ? (
             <CheckCircle2 size={20} />
@@ -244,7 +254,7 @@ const HRmanagement = () => {
 
       <div className="flex justify-between items-center">
         <div>
-         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
             HR Management
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -253,7 +263,7 @@ const HRmanagement = () => {
         </div>
         <button
           onClick={() => setShowModal(true)}
-        className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md">
+          className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md">
           <UserPlus size={18} /> Create HR
         </button>
       </div>
@@ -294,21 +304,21 @@ const HRmanagement = () => {
                   <td className="px-8 py-5 text-sm text-gray-500 dark:text-gray-400 font-medium">{hr.doj ? new Date(hr.doj).toLocaleDateString() : "—"}</td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex justify-end gap-2">
-                     <button
-  onClick={() => {
-    setFormData({
-      name: hr.name || "",
-      email: hr.email || "",
-      phone: hr.phone || "",
-      department: hr.department || "",
-      dob: hr.dob || "",
-      doj: hr.doj || "",
-      password: "",
-    });
+                      <button
+                        onClick={() => {
+                          setFormData({
+                            name: hr.name || "",
+                            email: hr.email || "",
+                            phone: hr.phone || "",
+                            department: hr.department || "",
+                            dob: hr.dob || "",
+                            doj: hr.doj || "",
+                            password: "",
+                          });
 
-    setIsEditing(hr._id);
-    setShowModal(true);
-  }}
+                          setIsEditing(hr._id);
+                          setShowModal(true);
+                        }}
                         className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
                       >
                         <Pencil size={16} />
@@ -342,211 +352,240 @@ const HRmanagement = () => {
                 </button>
               </div>
 
-           <form onSubmit={handleSubmit} className="space-y-6">
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-    {/* Name */}
-    <div className="flex flex-col gap-1.5">
-      <div className="flex justify-between items-center px-1">
-        <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
-          Full Name
-        </label>
-        {errors.name && (
-          <span className="text-[10px] text-red-500 font-bold uppercase">
-            {errors.name}
-          </span>
-        )}
-      </div>
+                  {/* Name */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Full Name
+                      </label>
+                      {errors.name && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.name}
+                        </span>
+                      )}
+                    </div>
 
-      <input
-        required
-        name="name"
-        type="text"
-        value={formData.name}
-        className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${
-          errors.name ? "border-red-400" : "border-gray-100 dark:border-gray-600"
-        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
-        onChange={handleChange}
-      />
-    </div>
+                    <input
+                      required
+                      name="name"
+                      type="text"
+                      value={formData.name}
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.name ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </div>
 
-    {/* Email */}
-    <div className="flex flex-col gap-1.5">
-      <div className="flex justify-between items-center px-1">
-        <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
-          Work Email
-        </label>
-        {errors.email && (
-          <span className="text-[10px] text-red-500 font-bold uppercase">
-            {errors.email}
-          </span>
-        )}
-      </div>
+                  {/* Email */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Work Email
+                      </label>
+                      {errors.email && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.email}
+                        </span>
+                      )}
+                    </div>
 
-      <input
-        required
-        name="email"
-        type="email"
-        value={formData.email}
-        className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${
-          errors.email ? "border-red-400" : "border-gray-100 dark:border-gray-600"
-        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
-        onChange={handleChange}
-      />
-    </div>
+                    <input
+                      required
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.email ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </div>
 
-    {/* Phone */}
-   <div className="flex flex-col gap-1.5">
-  <div className="flex justify-between items-center px-1">
-    <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
-      Phone Number
-    </label>
-    {errors.phone && (
-      <span className="text-[10px] text-red-500 font-bold uppercase">
-        {errors.phone}
-      </span>
-    )}
-  </div>
+                  {/* Phone */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Phone Number
+                      </label>
+                      {errors.phone && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.phone}
+                        </span>
+                      )}
+                    </div>
 
-  <input
-    required
-    name="phone"
-    type="tel"
-    value={formData.phone}
-    className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${
-      errors.phone ? "border-red-400" : "border-gray-100 dark:border-gray-600"
-    } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
-    
-    // ✅ STRICT PHONE CONTROL
-    onChange={(e) => {
-      let value = e.target.value.replace(/\D/g, "").slice(0, 10);
-      setFormData((prev) => ({ ...prev, phone: value }));
-      validateField("phone", value, { ...formData, phone: value });
-    }}
+                    <input
+                      required
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.phone ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onBlur={handleBlur}
+                      // ✅ STRICT PHONE CONTROL
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setFormData((prev) => ({ ...prev, phone: value }));
+                        validateField("phone", value, { ...formData, phone: value });
+                      }}
 
-    onKeyDown={(e) => {
-      if (
-        formData.phone.length >= 10 &&
-        e.key !== "Backspace" &&
-        e.key !== "Delete"
-      ) {
-        e.preventDefault();
-      }
-    }}
-  />
-</div>
+                      onKeyDown={(e) => {
+                        if (
+                          formData.phone.length >= 10 &&
+                          e.key !== "Backspace" &&
+                          e.key !== "Delete"
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                  </div>
 
-    {/* Department */}
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase ml-1">
-        Department
-      </label>
+                  {/* Department */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Department
+                      </label>
+                      {errors.department && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.department}
+                        </span>
+                      )}
+                    </div>
 
-      <select
-  name="department"
-  value={formData.department}
-  className="w-full p-3.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm cursor-pointer"
-  onChange={handleChange}
->
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Human Resources">
-    Human Resources
-  </option>
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="IT">
-    IT
-  </option>
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Sales">
-    Sales
-  </option>
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Account">
-    Account
-  </option>
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Marketing">
-    Marketing
-  </option>
-  <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Customer Support">
-    Customer Support
-  </option>
-</select>
-    </div>
+                    <select
+                      name="department"
+                      value={formData.department}
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.department ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm cursor-pointer`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    >
+                      <option className="bg-white dark:bg-gray-700 text-gray-400" value="" disabled>
+                        Select Department
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Human Resources">
+                        Human Resources
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="IT">
+                        IT
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Sales">
+                        Sales
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Account">
+                        Account
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Marketing">
+                        Marketing
+                      </option>
+                      <option className="bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="Customer Support">
+                        Customer Support
+                      </option>
+                    </select>
+                  </div>
 
-    {/* DOB */}
-   <div className="flex flex-col gap-1.5">
-  <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase ml-1">
-    Date of Birth
-  </label>
+                  {/* DOB */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Date of Birth
+                      </label>
+                      {errors.dob && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.dob}
+                        </span>
+                      )}
+                    </div>
 
-  <input
-    required
-    name="dob"
-    type="date"
-    value={formData.dob}
+                    <input
+                      required
+                      name="dob"
+                      type="date"
+                      value={formData.dob}
 
-    // ✅ DISABLE FUTURE DATES
-    max={new Date().toISOString().split("T")[0]}
+                      // ✅ DISABLE FUTURE DATES
+                      max={new Date().toISOString().split("T")[0]}
 
-    className="w-full p-3.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm"
-    onChange={handleChange}
-  />
-</div>
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.dob ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </div>
 
-{/* DOJ */}
-<div className="flex flex-col gap-1.5">
-  <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase ml-1">
-    Joining Date
-  </label>
+                  {/* DOJ */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Joining Date
+                      </label>
+                      {errors.doj && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.doj}
+                        </span>
+                      )}
+                    </div>
 
-  <input
-    required
-    name="doj"
-    type="date"
-    value={formData.doj}
+                    <input
+                      required
+                      name="doj"
+                      type="date"
+                      value={formData.doj}
 
-    // ✅ MUST BE AFTER DOB
-    min={formData.dob || ""}
+                      // ✅ MUST BE AFTER DOB
+                      min={formData.dob || ""}
 
-    // ✅ NO FUTURE DATE
-    max={new Date().toISOString().split("T")[0]}
+                      // ✅ NO FUTURE DATE
+                      max={new Date().toISOString().split("T")[0]}
 
-    className="w-full p-3.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm"
-    onChange={handleChange}
-  />
-</div>
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.doj ? "border-red-400" : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </div>
 
-  </div>
-               {/* Password */}
-{!isEditing && (
-  <div className="flex flex-col gap-1.5">
-    <div className="flex justify-between items-center px-1">
-      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
-        Login Password
-      </label>
+                </div>
+                {/* Password */}
+                {!isEditing && (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-gray-300 uppercase">
+                        Login Password
+                      </label>
 
-      {errors.password && (
-        <span className="text-[10px] text-red-500 font-bold uppercase">
-          {errors.password}
-        </span>
-      )}
-    </div>
+                      {errors.password && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">
+                          {errors.password}
+                        </span>
+                      )}
+                    </div>
 
-    <input
-      required
-      name="password"
-      type="password"
-      value={formData.password}
-      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${
-        errors.password
-          ? "border-red-400"
-          : "border-gray-100 dark:border-gray-600"
-      } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
-      onChange={handleChange}
-    />
-  </div>
-)}
+                    <input
+                      required
+                      name="password"
+                      type="password"
+                      value={formData.password}
+                      className={`w-full p-3.5 bg-gray-50 dark:bg-gray-700 border ${errors.password
+                        ? "border-red-400"
+                        : "border-gray-100 dark:border-gray-600"
+                        } text-gray-800 dark:text-white rounded-2xl outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-700 transition-all text-sm`}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </div>
+                )}
 
                 <button
                   disabled={loading || Object.values(errors).some((err) => err !== "")}
-                 className="w-full py-4 bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm shadow-md hover:bg-emerald-700 transition-all mt-4 active:scale-95">
-                                  {loading ? "Please wait..." : isEditing ? "Update HR Details" : "Create HR Account"}
+                  className="w-full py-4 bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm shadow-md hover:bg-emerald-700 transition-all mt-4 active:scale-95">
+                  {loading ? "Please wait..." : isEditing ? "Update HR Details" : "Create HR Account"}
                 </button>
               </form>
             </div>
